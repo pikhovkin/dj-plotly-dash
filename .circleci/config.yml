@@ -64,7 +64,6 @@ jobs:
         TOX: py37,py37dj{109,110,111,200,201}
         TOX_PYTHON_37: python
 
-
 workflows:
   version: 2
   build:
