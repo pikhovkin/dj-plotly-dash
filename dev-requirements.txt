@@ -1,0 +1,12 @@
+;dash_core_components>=0.30.2
+;dash_html_components>=0.13.2
+;dash_renderer>=0.14.1
+;Django>=1.9,<2.2
+;dash_flow_example==0.0.3
+;dash-dangerously-set-inner-html
+selenium>=3.14.1
+tox>=3.4.0
+plotly>=2.0.8
+pytest-django>=3.4.3
+flake8>=3.5.0
+pylint==2.1.1

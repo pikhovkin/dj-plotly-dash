@@ -1,0 +1,5 @@
+plotly>=2.0.8
+dash_core_components>=0.30.2
+dash_html_components>=0.13.2
+dash-renderer>=0.14.1
+Django>=1.9,<2.2
