@@ -57,8 +57,7 @@ class MetaDashView(type):
         return new_cls
 
 
-_default_index = '''
-<!DOCTYPE html>
+_default_index = '''<!DOCTYPE html>
 <html>
     <head>
         {%metas%}
@@ -73,8 +72,7 @@ _default_index = '''
             {%scripts%}
         </footer>
     </body>
-</html>
-'''
+</html>'''
 
 _app_entry = '''
 <div id="react-entry-point">
@@ -102,14 +100,15 @@ class Dash(object):
                  external_scripts=None,
                  external_stylesheets=None,
                  assets_folder=None,
-                 assets_ignore=None,
+                 assets_ignore='',
+                 suppress_callback_exceptions=None,
                  components_cache_max_age=None,
                  **kwargs):
         self._assets_folder = assets_folder
 
         self.url_base_pathname = url_base_pathname
         self.config = _AttributeDict({
-            'suppress_callback_exceptions': False,
+            'suppress_callback_exceptions': suppress_callback_exceptions or False,
             'routes_pathname_prefix': url_base_pathname,
             'requests_pathname_prefix': url_base_pathname,
             'assets_external_path': None,
@@ -133,7 +132,7 @@ class Dash(object):
 
         self.assets_ignore = assets_ignore
 
-        self.registered_paths = {}
+        self.registered_paths = collections.defaultdict(set)
 
         self._layout = None
         self._cached_layout = None
@@ -207,10 +206,7 @@ class Dash(object):
         def _relative_url_path(relative_package_path='', namespace=''):
 
             # track the registered packages
-            if namespace in self.registered_paths:
-                self.registered_paths[namespace].append(relative_package_path)
-            else:
-                self.registered_paths[namespace] = [relative_package_path]
+            self.registered_paths[namespace].add(relative_package_path)
 
             module_path = os.path.join(
                 os.path.dirname(sys.modules[namespace].__file__),
@@ -309,7 +305,9 @@ class Dash(object):
 
         tags = []
         if not has_ie_compat:
-            tags.append('<meta equiv="X-UA-Compatible" content="IE=edge">')
+            tags.append(
+                '<meta http-equiv="X-UA-Compatible" content="IE=edge">'
+            )
         if not has_charset:
             tags.append('<meta charset="UTF-8">')
 
@@ -328,10 +326,27 @@ class Dash(object):
         config = self._generate_config_html()
         metas = self._generate_meta_html()
         title = getattr(self, 'title', 'Dash')
+
         if self._favicon:
             favicon = '<link rel="icon" type="image/x-icon" href="{}">'.format(self._favicon)
         else:
             favicon = ''
+
+        # if self._favicon:
+        #     favicon_mod_time = os.path.getmtime(
+        #         os.path.join(self._assets_folder, self._favicon))
+        #     favicon_url = self.get_asset_url(self._favicon) + '?m={}'.format(
+        #         favicon_mod_time
+        #     )
+        # else:
+        #     favicon_url = '{}_favicon.ico'.format(
+        #         self.config.requests_pathname_prefix)
+        #
+        # favicon = _format_tag('link', {
+        #     'rel': 'icon',
+        #     'type': 'image/x-icon',
+        #     'href': favicon_url
+        # }, opened=True)
 
         index = self.interpolate_index(
             metas=metas, title=title, css=css, config=config,
@@ -651,9 +666,10 @@ class Dash(object):
                         )
 
                     # Children that are not of type Component or
-                    # collections.MutableSequence not returned by traverse
+                    # list/tuple not returned by traverse
                     child = getattr(j, 'children', None)
-                    if not isinstance(child, collections.MutableSequence):
+                    if not isinstance(child, (tuple,
+                                              collections.MutableSequence)):
                         if child and not _value_is_valid(child):
                             _raise_invalid(
                                 bad_val=child,
@@ -665,7 +681,7 @@ class Dash(object):
 
                 # Also check the child of val, as it will not be returned
                 child = getattr(val, 'children', None)
-                if not isinstance(child, collections.MutableSequence):
+                if not isinstance(child, (tuple, collections.MutableSequence)):
                     if child and not _value_is_valid(child):
                         _raise_invalid(
                             bad_val=child,
@@ -830,7 +846,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
     dash_external_scripts = None
     dash_external_stylesheets = None
     dash_assets_folder = None
-    dash_assets_ignore = None
+    dash_assets_ignore = ''
     dash_prefix = ''  # For additional special urls
     _dashes = {}
 

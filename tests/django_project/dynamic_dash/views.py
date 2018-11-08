@@ -347,7 +347,7 @@ class DashExternalFilesInit(DashView):
             </head>
             <body>
                 <div id="tested"></div>
-                <div id="ramda-test">Hello World</div>
+                <div id="ramda-test"></div>
                 <button type="button" id="btn">Btn</button>
                 {%app_entry%}
                 <footer>

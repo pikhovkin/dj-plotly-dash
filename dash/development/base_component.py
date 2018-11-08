@@ -2,7 +2,51 @@ import collections
 import copy
 import os
 import inspect
-import keyword
+import abc
+import sys
+import six
+
+from ._all_keywords import kwlist
+
+
+# pylint: disable=no-init,too-few-public-methods
+class ComponentRegistry:
+    """Holds a registry of the namespaces used by components."""
+
+    registry = set()
+    __dist_cache = {}
+
+    @classmethod
+    def get_resources(cls, resource_name):
+        cached = cls.__dist_cache.get(resource_name)
+
+        if cached:
+            return cached
+
+        cls.__dist_cache[resource_name] = resources = []
+
+        for module_name in cls.registry:
+            module = sys.modules[module_name]
+            resources.extend(getattr(module, resource_name, []))
+
+        return resources
+
+
+class ComponentMeta(abc.ABCMeta):
+
+    # pylint: disable=arguments-differ
+    def __new__(mcs, name, bases, attributes):
+        component = abc.ABCMeta.__new__(mcs, name, bases, attributes)
+        module = attributes['__module__'].split('.')[0]
+        if name == 'Component' or module == 'builtins':
+            # Don't do the base component
+            # and the components loaded dynamically by load_component
+            # as it doesn't have the namespace.
+            return component
+
+        ComponentRegistry.registry.add(module)
+
+        return component
 
 
 def is_number(s):
@@ -16,7 +60,8 @@ def is_number(s):
 def _check_if_has_indexable_children(item):
     if (not hasattr(item, 'children') or
             (not isinstance(item.children, Component) and
-             not isinstance(item.children, collections.MutableSequence))):
+             not isinstance(item.children, (tuple,
+                                            collections.MutableSequence)))):
 
         raise KeyError
 
@@ -52,6 +97,7 @@ def _explicitize_args(func):
     return wrapper
 
 
+@six.add_metaclass(ComponentMeta)
 class Component(collections.MutableMapping):
     class _UNDEFINED(object):
         def __repr__(self):
@@ -122,7 +168,7 @@ class Component(collections.MutableMapping):
             if getattr(self.children, 'id', None) is not None:
                 # Woohoo! It's the item that we're looking for
                 if self.children.id == id:
-                    if operation == 'get':  # pylint: disable=no-else-return
+                    if operation == 'get':
                         return self.children
                     elif operation == 'set':
                         self.children = new_item
@@ -133,7 +179,7 @@ class Component(collections.MutableMapping):
 
             # Recursively dig into its subtree
             try:
-                if operation == 'get':  # pylint: disable=no-else-return
+                if operation == 'get':
                     return self.children.__getitem__(id)
                 elif operation == 'set':
                     self.children.__setitem__(id, new_item)
@@ -145,11 +191,11 @@ class Component(collections.MutableMapping):
                 pass
 
         # if children is like a list
-        if isinstance(self.children, collections.MutableSequence):
+        if isinstance(self.children, (tuple, collections.MutableSequence)):
             for i, item in enumerate(self.children):
                 # If the item itself is the one we're looking for
-                if getattr(item, 'id', None) == id:  # pylint: disable=no-else-return
-                    if operation == 'get':  # pylint: disable=no-else-return
+                if getattr(item, 'id', None) == id:
+                    if operation == 'get':
                         return item
                     elif operation == 'set':
                         self.children[i] = new_item
@@ -162,7 +208,7 @@ class Component(collections.MutableMapping):
                 # Make sure it's not like a string
                 elif isinstance(item, Component):
                     try:
-                        if operation == 'get':  # pylint: disable=no-else-return
+                        if operation == 'get':
                             return item.__getitem__(id)
                         elif operation == 'set':
                             item.__setitem__(id, new_item)
@@ -221,7 +267,7 @@ class Component(collections.MutableMapping):
                 yield "\n".join(["[*] " + children_string, p]), t
 
         # children is a list of components
-        elif isinstance(children, collections.MutableSequence):
+        elif isinstance(children, (tuple, collections.MutableSequence)):
             for idx, i in enumerate(children):
                 list_path = "[{:d}] {:s} {}".format(
                     idx,
@@ -254,7 +300,7 @@ class Component(collections.MutableMapping):
         elif isinstance(self.children, Component):
             length = 1
             length += len(self.children)
-        elif isinstance(self.children, collections.MutableSequence):
+        elif isinstance(self.children, (tuple, collections.MutableSequence)):
             for c in self.children:
                 length += 1
                 if isinstance(c, Component):
@@ -360,7 +406,7 @@ def generate_class_string(typename, props, description, namespace):
         component_name=typename,
         props=filtered_props,
         events=parse_events(props),
-        description=description)
+        description=description).replace('\r\n', '\n')
 
     # pylint: disable=unused-variable
     events = '[' + ', '.join(parse_events(props)) + ']'
@@ -379,7 +425,7 @@ def generate_class_string(typename, props, description, namespace):
           '{:s}=Component.UNDEFINED'.format(p))
          for p in prop_keys
          if not p.endswith("-*") and
-         p not in keyword.kwlist and
+         p not in kwlist and
          p not in ['dashEvents', 'fireEvent', 'setProps']] + ['**kwargs']
     )
 
@@ -827,7 +873,6 @@ def js_to_py_type(type_object, is_flow_type=False, indent_num=0):
         if is_flow_type \
         else map_js_to_py_types_prop_types(type_object=type_object)
 
-    # pylint: disable=no-else-return
     if 'computed' in type_object and type_object['computed'] \
             or type_object.get('type', '') == 'function':
         return ''
