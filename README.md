@@ -4,6 +4,7 @@
 [![PyPI](https://img.shields.io/pypi/v/dj-plotly-dash.svg)](https://pypi.org/project/dj-plotly-dash/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dj-plotly-dash.svg)
 [![framework - Django](https://img.shields.io/badge/framework-Django-0C3C26.svg)](https://www.djangoproject.com/)
+![PyPI - Django Version](https://img.shields.io/pypi/djversions/dj-plotly-dash.svg)
 [![PyPI - License](https://img.shields.io/pypi/l/dj-plotly-dash.svg)](./LICENSE)
 
 
