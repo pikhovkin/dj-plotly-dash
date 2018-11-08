@@ -5,7 +5,7 @@
 ;dash_flow_example==0.0.3
 ;dash-dangerously-set-inner-html
 selenium>=3.14.1
-tox>=3.4.0
+tox>=3.5.0
 plotly>=2.0.8
 pytest-django>=3.4.3
 flake8>=3.5.0

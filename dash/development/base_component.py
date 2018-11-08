@@ -10,7 +10,7 @@ from ._all_keywords import kwlist
 
 
 # pylint: disable=no-init,too-few-public-methods
-class ComponentRegistry:
+class ComponentRegistry(object):
     """Holds a registry of the namespaces used by components."""
 
     registry = set()
@@ -35,8 +35,9 @@ class ComponentRegistry:
 class ComponentMeta(abc.ABCMeta):
 
     # pylint: disable=arguments-differ
-    def __new__(mcs, name, bases, attributes):
-        component = abc.ABCMeta.__new__(mcs, name, bases, attributes)
+    def __new__(cls, name, bases, attributes):
+        # pylint: disable=too-many-function-args
+        component = abc.ABCMeta.__new__(cls, name, bases, attributes)
         module = attributes['__module__'].split('.')[0]
         if name == 'Component' or module == 'builtins':
             # Don't do the base component
@@ -167,8 +168,8 @@ class Component(collections.MutableMapping):
         if isinstance(self.children, Component):
             if getattr(self.children, 'id', None) is not None:
                 # Woohoo! It's the item that we're looking for
-                if self.children.id == id:
-                    if operation == 'get':
+                if self.children.id == id:  # pylint: disable=no-else-return
+                    if operation == 'get':  # pylint: disable=no-else-return
                         return self.children
                     elif operation == 'set':
                         self.children = new_item
@@ -179,6 +180,7 @@ class Component(collections.MutableMapping):
 
             # Recursively dig into its subtree
             try:
+                # pylint: disable=no-else-return
                 if operation == 'get':
                     return self.children.__getitem__(id)
                 elif operation == 'set':
@@ -194,8 +196,8 @@ class Component(collections.MutableMapping):
         if isinstance(self.children, (tuple, collections.MutableSequence)):
             for i, item in enumerate(self.children):
                 # If the item itself is the one we're looking for
-                if getattr(item, 'id', None) == id:
-                    if operation == 'get':
+                if getattr(item, 'id', None) == id:  # pylint: disable=no-else-return
+                    if operation == 'get':  # pylint: disable=no-else-return
                         return item
                     elif operation == 'set':
                         self.children[i] = new_item
@@ -207,7 +209,7 @@ class Component(collections.MutableMapping):
                 # Otherwise, recursively dig into that item's subtree
                 # Make sure it's not like a string
                 elif isinstance(item, Component):
-                    try:
+                    try:  # pylint: disable=no-else-return
                         if operation == 'get':
                             return item.__getitem__(id)
                         elif operation == 'set':
@@ -873,6 +875,7 @@ def js_to_py_type(type_object, is_flow_type=False, indent_num=0):
         if is_flow_type \
         else map_js_to_py_types_prop_types(type_object=type_object)
 
+    # pylint: disable=no-else-return
     if 'computed' in type_object and type_object['computed'] \
             or type_object.get('type', '') == 'function':
         return ''
