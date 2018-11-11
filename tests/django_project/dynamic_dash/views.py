@@ -337,6 +337,8 @@ class DashExternalFilesInit(DashView):
         super(DashExternalFilesInit, self).__init__(dash_external_scripts=self.js_files,
                                                     dash_external_stylesheets=self.css_files, **kwargs)
 
+        self.dash.css.config.serve_locally = False
+        self.dash.scripts.config.serve_locally = False
         self.dash.index_string = '''
         <!DOCTYPE html>
         <html>
@@ -347,7 +349,7 @@ class DashExternalFilesInit(DashView):
             </head>
             <body>
                 <div id="tested"></div>
-                <div id="ramda-test"></div>
+                <div id="ramda-test">Hello World</div>
                 <button type="button" id="btn">Btn</button>
                 {%app_entry%}
                 <footer>

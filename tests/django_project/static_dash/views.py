@@ -335,6 +335,8 @@ class DashExternalFilesInit(DashView):
     ]
 
     dash = Dash(external_scripts=js_files, external_stylesheets=css_files)
+    dash.css.config.serve_locally = False
+    dash.scripts.config.serve_locally = False
     dash.index_string = '''
     <!DOCTYPE html>
     <html>
