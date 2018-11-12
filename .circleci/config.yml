@@ -7,7 +7,7 @@ jobs:
         environment:
           REQUIREMENTS_FILE: dev-requirements.txt
           PYLINTRC: .pylintrc
-          TOX: py27,py27dj{109,110,111,200,201}
+          TOX: py27,py27-dj{109,110,111}
           TOX_PYTHON_27: python
 
     steps:
@@ -22,7 +22,7 @@ jobs:
           command: echo $CIRCLE_JOB > circlejob.txt
 
       - restore_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "reqs.txt" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "circlejob.txt" }}
+          key: deps1-{{ .Branch }}-{{ checksum "tox.ini" }}-{{ checksum "reqs.txt" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "circlejob.txt" }}
 
       - run:
           name: Install dependencies
@@ -33,7 +33,7 @@ jobs:
               pip install tox
 
       - save_cache:
-          key: deps1-{{ .Branch }}-{{ checksum "reqs.txt" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "circlejob.txt" }}
+          key: deps1-{{ .Branch }}-{{ checksum "tox.ini" }}-{{ checksum "reqs.txt" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "circlejob.txt" }}
           paths:
               - "venv"
               - ".tox"
