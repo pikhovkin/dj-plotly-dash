@@ -17,13 +17,13 @@ class ComponentRegistry(object):
     __dist_cache = {}
 
     @classmethod
-    def get_resources(cls, resource_name):
-        cached = cls.__dist_cache.get(resource_name)
+    def get_resources(cls, resource_name, affix=''):
+        cached = cls.__dist_cache.get(resource_name + affix)
 
         if cached:
             return cached
 
-        cls.__dist_cache[resource_name] = resources = []
+        cls.__dist_cache[resource_name + affix] = resources = []
 
         for module_name in cls.registry:
             module = sys.modules[module_name]

@@ -252,7 +252,7 @@ class Dash(object):
 
     def _generate_css_dist_html(self):
         links = self._external_stylesheets + \
-                self._collect_and_register_resources(self.css.get_all_css())
+                self._collect_and_register_resources(self.css.get_all_css(affix=getattr(self, '_res_affix', '')))
 
         return '\n'.join([
             _format_tag('link', link, opened=True)
@@ -275,6 +275,7 @@ class Dash(object):
                 dev_bundles=self._dev_tools.serve_dev_bundles
             )) + self._external_scripts + self._collect_and_register_resources(
                 self.scripts.get_all_scripts(
+                    affix=getattr(self, '_res_affix', ''),
                     dev_bundles=self._dev_tools.serve_dev_bundles) +
                 self.scripts._resources._filter_resources(
                     dash_renderer._js_dist,
@@ -864,6 +865,8 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
         dash = getattr(self, 'dash', None)
         if not isinstance(dash, Dash):
             self.dash = Dash()
+
+        setattr(self.dash, '_res_affix', '_{}'.format(id(self.__class__)))
 
         if dash_base_url and self.dash.url_base_pathname != dash_base_url:
             self.dash.url_base_pathname = dash_base_url  # pylint: disable=access-member-before-definition

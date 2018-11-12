@@ -5,8 +5,7 @@ import os
 from .development.base_component import ComponentRegistry
 
 
-# pylint: disable=old-style-class
-class Resources:
+class Resources(object):
     def __init__(self, resource_name, layout):
         self._resources = []
         self.resource_name = resource_name
@@ -58,11 +57,11 @@ class Resources:
 
         return filtered_resources
 
-    def get_all_resources(self, dev_bundles=False):
+    def get_all_resources(self, affix='', dev_bundles=False):
         if self._resources_cache:
             return self._resources_cache
 
-        all_resources = ComponentRegistry.get_resources(self.resource_name)
+        all_resources = ComponentRegistry.get_resources(self.resource_name, affix=affix)
         all_resources.extend(self._resources)
 
         self._resources_cache = res = \
@@ -70,7 +69,7 @@ class Resources:
         return res
 
 
-class Css:  # pylint: disable=old-style-class
+class Css(object):
     def __init__(self, layout=None):
         self._resources = Resources('_css_dist', layout)
         self._resources.config = self.config
@@ -81,8 +80,8 @@ class Css:  # pylint: disable=old-style-class
     def append_css(self, stylesheet):
         self._resources.append_resource(stylesheet)
 
-    def get_all_css(self):
-        return self._resources.get_all_resources()
+    def get_all_css(self, affix=''):
+        return self._resources.get_all_resources(affix=affix)
 
     # pylint: disable=old-style-class, no-init, too-few-public-methods
     class config:
@@ -90,7 +89,7 @@ class Css:  # pylint: disable=old-style-class
         serve_locally = False
 
 
-class Scripts:  # pylint: disable=old-style-class
+class Scripts(object):
     def __init__(self, layout=None):
         self._resources = Resources('_js_dist', layout)
         self._resources.config = self.config
@@ -101,8 +100,8 @@ class Scripts:  # pylint: disable=old-style-class
     def append_script(self, script):
         self._resources.append_resource(script)
 
-    def get_all_scripts(self, dev_bundles=False):
-        return self._resources.get_all_resources(dev_bundles)
+    def get_all_scripts(self, affix='', dev_bundles=False):
+        return self._resources.get_all_resources(affix=affix, dev_bundles=dev_bundles)
 
     # pylint: disable=old-style-class, no-init, too-few-public-methods
     class config:
