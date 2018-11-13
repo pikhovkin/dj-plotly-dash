@@ -51,7 +51,7 @@ jobs:
         environment:
           REQUIREMENTS_FILE: dev-requirements.txt
           PYLINTRC: .pylintrc
-          TOX: py36,py36dj{109,110,111,200,201}
+          TOX: py36,py36-dj{109,110,111,200,201}
           TOX_PYTHON_36: python
 
   "python-3.7":
@@ -61,7 +61,7 @@ jobs:
       environment:
         REQUIREMENTS_FILE: dev-requirements.txt
         PYLINTRC37: .pylintrc37
-        TOX: py37,py37dj{109,110,111,200,201}
+        TOX: py37,py37-dj{109,110,111,200,201}
         TOX_PYTHON_37: python
 
 workflows:
