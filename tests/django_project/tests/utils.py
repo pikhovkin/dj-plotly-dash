@@ -56,7 +56,7 @@ def wait_for(condition_function, get_message=lambda: '', *args, **kwargs):
     while time.time() < start_time + timeout:
         if wrapped_condition_function():
             return True
-        time.sleep(0.5)
+        time.sleep(1)
 
     raise WaitForTimeout(get_message())
 

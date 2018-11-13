@@ -1,4 +1,3 @@
-import sys
 import time
 
 from selenium import webdriver
@@ -11,7 +10,7 @@ class IntegrationTests(LiveServerTestCase):
     def wait_for_element_by_id(self, id):
         wait_for(lambda: None is not invincible(
             lambda: self.driver.find_element_by_id(id)
-        ), timeout=5)
+        ), timeout=20)
         return self.driver.find_element_by_id(id)
 
     @classmethod

@@ -16,7 +16,7 @@ class Tests(IntegrationTests):
         self.open('dash/{}/'.format(view_class.dash_name))
 
         output1 = self.wait_for_element_by_id('output-1')
-        wait_for(lambda: output1.text == 'initial value')
+        wait_for(lambda: output1.text == 'initial value', timeout=20)
 
         input1 = self.wait_for_element_by_id('input')
         input1.clear()
@@ -24,7 +24,7 @@ class Tests(IntegrationTests):
         input1.send_keys('hello world')
 
         output1 = lambda: self.wait_for_element_by_id('output-1')
-        wait_for(lambda: output1().text == 'hello world')
+        wait_for(lambda: output1().text == 'hello world', timeout=20)
 
         self.assertEqual(
             view_class.call_count.value,
@@ -40,7 +40,7 @@ class Tests(IntegrationTests):
         self.open('dash/{}/'.format(view_class.dash_name))
 
         output1 = self.wait_for_element_by_id('output-1')
-        wait_for(lambda: output1.text == 'initial value')
+        wait_for(lambda: output1.text == 'initial value', timeout=20)
 
         input1 = self.wait_for_element_by_id('input')
         input1.clear()
@@ -48,7 +48,7 @@ class Tests(IntegrationTests):
         input1.send_keys('hello world')
 
         output1 = lambda: self.wait_for_element_by_id('output-1')
-        wait_for(lambda: output1().text == 'hello world')
+        wait_for(lambda: output1().text == 'hello world', timeout=20)
 
         self.assertEqual(
             view_class.call_count.value,
