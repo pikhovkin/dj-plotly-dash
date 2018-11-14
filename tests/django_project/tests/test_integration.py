@@ -1,6 +1,7 @@
 import itertools
 import re
 import json
+import time
 
 import dash_html_components as html
 
@@ -23,8 +24,7 @@ class Tests(IntegrationTests):
 
         input1.send_keys('hello world')
 
-        output1 = lambda: self.wait_for_element_by_id('output-1')
-        wait_for(lambda: output1().text == 'hello world', timeout=20)
+        output1 = self.wait_for_text_to_equal('#output-1', 'hello world')
 
         self.assertEqual(
             view_class.call_count.value,
@@ -39,16 +39,14 @@ class Tests(IntegrationTests):
     def _wildcard_callback(self, view_class):
         self.open('dash/{}/'.format(view_class.dash_name))
 
-        output1 = self.wait_for_element_by_id('output-1')
-        wait_for(lambda: output1.text == 'initial value', timeout=20)
+        output1 = self.wait_for_text_to_equal('#output-1', 'initial value')
 
         input1 = self.wait_for_element_by_id('input')
         input1.clear()
 
         input1.send_keys('hello world')
 
-        output1 = lambda: self.wait_for_element_by_id('output-1')
-        wait_for(lambda: output1().text == 'hello world', timeout=20)
+        output1 = self.wait_for_text_to_equal('#output-1', 'hello world')
 
         self.assertEqual(
             view_class.call_count.value,
@@ -245,6 +243,15 @@ class Tests(IntegrationTests):
     def _func_layout_accepted(self, view_class):
         self.open('dash/{}/'.format(view_class.dash_name))
 
+    def _late_component_register(self, view_class):
+        self.open('dash/{}/'.format(view_class.dash_name))
+
+        btn = self.wait_for_element_by_css_selector('#btn-insert')
+        btn.click()
+        time.sleep(1)
+
+        self.wait_for_element_by_css_selector('#inserted-input')
+
     def test_simple_callback(self):
         self._simple_callback(dynamic_views.DashSimpleCallback)
         self._simple_callback(static_views.DashSimpleCallback)
@@ -292,3 +299,7 @@ class Tests(IntegrationTests):
     def test_func_layout_accepted(self):
         self._func_layout_accepted(dynamic_views.DashFuncLayoutAccepted)
         self._func_layout_accepted(static_views.DashFuncLayoutAccepted)
+
+    def test_late_component_register(self):
+        self._late_component_register(dynamic_views.DashLateComponentRegister)
+        self._late_component_register(static_views.DashLateComponentRegister)

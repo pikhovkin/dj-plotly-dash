@@ -371,3 +371,24 @@ class DashFuncLayoutAccepted(DashView):
             return html.Div('Hello World')
 
         self.dash.layout = create_layout
+
+
+class DashLateComponentRegister(DashView):
+    dash_name = 'dash13'
+
+    def __init__(self, **kwargs):
+        super(DashLateComponentRegister, self).__init__(**kwargs)
+
+        self.dash.layout = html.Div([
+            html.Button('Click me to put a dcc', id='btn-insert'),
+            html.Div(id='output')
+        ])
+
+        self.dash.callback(Output('output', 'children'),
+                           [Input('btn-insert', 'n_clicks')])(self.update_output)
+
+    def update_output(self, value):
+        if value is None:
+            raise PreventUpdate()
+
+        return dcc.Input(id='inserted-input')

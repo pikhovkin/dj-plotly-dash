@@ -369,3 +369,24 @@ class DashFuncLayoutAccepted(DashView):
     DashView.set_config(dash, dash_name)  # As an opportunity
 
     dash.layout = lambda: html.Div('Hello World')
+
+
+class DashLateComponentRegister(DashView):
+    dash_name = 'static_dash13'
+
+    dash = Dash()
+
+    DashView.set_config(dash, dash_name)  # As an opportunity
+
+    dash.layout = html.Div([
+        html.Button('Click me to put a dcc', id='btn-insert'),
+        html.Div(id='output')
+    ])
+
+    @staticmethod  # As an opportunity
+    @dash.callback(Output('output', 'children'), [Input('btn-insert', 'n_clicks')])
+    def update_output(value):
+        if value is None:
+            raise PreventUpdate()
+
+        return dcc.Input(id='inserted-input')
