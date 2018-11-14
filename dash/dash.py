@@ -18,6 +18,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import HttpResponse, JsonResponse as BaseJsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+from django.conf import settings
 
 from .dependencies import Event, Input, Output, State
 from .resources import Scripts, Css
@@ -34,6 +35,9 @@ __all__ = (
     'Dash',
     'BaseDashView'
 )
+
+
+DASH_COMPONENT_SUITES_URL = getattr(settings, 'DASH_COMPONENT_SUITES_URL', '')
 
 
 class JsonResponse(BaseJsonResponse):
@@ -203,7 +207,7 @@ class Dash(object):
         # template in the necessary component suite JS bundles
         # add the version number of the package as a query parameter
         # for cache busting
-        def _relative_url_path(relative_package_path='', namespace=''):
+        def _relative_url_path(path_prefix, relative_package_path='', namespace=''):
 
             # track the registered packages
             self.registered_paths[namespace].add(relative_package_path)
@@ -215,21 +219,24 @@ class Dash(object):
             modified = int(os.stat(module_path).st_mtime)
 
             return '{}_dash-component-suites/{}/{}?v={}&m={}'.format(
-                self.config['requests_pathname_prefix'],
+                path_prefix,
                 namespace,
                 relative_package_path,
                 importlib.import_module(namespace).__version__,
                 modified
             )
 
+        path_prefix = DASH_COMPONENT_SUITES_URL or self.config['requests_pathname_prefix']
+
         srcs = []
         for resource in resources:
             if 'relative_package_path' in resource:
                 if isinstance(resource['relative_package_path'], str):
-                    srcs.append(_relative_url_path(**resource))
+                    srcs.append(_relative_url_path(path_prefix, **resource))
                 else:
                     for rel_path in resource['relative_package_path']:
                         srcs.append(_relative_url_path(
+                            path_prefix,
                             relative_package_path=rel_path,
                             namespace=resource['namespace']
                         ))
@@ -960,4 +967,4 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
     @classmethod
     def serve_dash_routes(cls, request, dash_name, *args, **kwargs):
         view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-routes'))
-        return view._dash_component_suites(request, *args, **kwargs)   # pylint: disable=protected-access
+        return view._dash_routes(request, *args, **kwargs)   # pylint: disable=protected-access
