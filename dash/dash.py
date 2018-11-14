@@ -37,9 +37,6 @@ __all__ = (
 )
 
 
-DASH_COMPONENT_SUITES_URL = getattr(settings, 'DASH_COMPONENT_SUITES_URL', '')
-
-
 class JsonResponse(BaseJsonResponse):
     def __init__(self, data, encoder=plotly.utils.PlotlyJSONEncoder, safe=False,
                  json_dumps_params=None, **kwargs):
@@ -226,6 +223,7 @@ class Dash(object):
                 modified
             )
 
+        DASH_COMPONENT_SUITES_URL = getattr(settings, 'DASH_COMPONENT_SUITES_URL', '')
         path_prefix = DASH_COMPONENT_SUITES_URL or self.config['requests_pathname_prefix']
 
         srcs = []

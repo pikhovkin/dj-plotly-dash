@@ -37,6 +37,8 @@ MIDDLEWARE = [
     'dash.middleware.CommonMiddleware',
 ]
 
+MIDDLEWARE_CLASSES = MIDDLEWARE  # for Django < 1.10
+
 ROOT_URLCONF = 'project.urls'
 
 TEMPLATES = [
