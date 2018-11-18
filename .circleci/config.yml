@@ -7,7 +7,7 @@ jobs:
         environment:
           REQUIREMENTS_FILE: dev-requirements.txt
           PYLINTRC: .pylintrc
-          TOX: py27,py27-dj{109,110}
+          TOX: py27,py27-dj{109,110,111}
           TOX_PYTHON_27: python
 
     steps:
