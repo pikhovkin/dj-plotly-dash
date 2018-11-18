@@ -34,7 +34,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    # 'dash.middleware.CommonMiddleware',
+    'dash.middleware.CommonMiddleware',
 ]
 
 MIDDLEWARE_CLASSES = MIDDLEWARE  # for Django < 1.10
