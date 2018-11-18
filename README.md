@@ -34,14 +34,16 @@ See examples of usage in `tests/django_project`
 
 ### Installation
 
-    pip install dj-plotly-dash
-    pip install dash_core_components>=0.30.2 --no-deps
-    pip install dash_html_components>=0.13.2 --no-deps
+```bash
+$ pip install dj-plotly-dash
+$ pip install dash_core_components>=0.35.1 --no-deps
+$ pip install dash_html_components>=0.12.0rc3 --no-deps
+```
 
 ### Documentation
 
 View the [Dash User Guide](https://plot.ly/dash). It's chock-full of examples, pro tips, and guiding principles.
 
-### Licensing
+### License
 
 MIT
