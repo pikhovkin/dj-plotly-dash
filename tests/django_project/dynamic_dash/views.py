@@ -127,12 +127,12 @@ class DashAbortedCallback(DashView):
                            [Input('output1', 'children')])(self.callback2)
 
     def callback1(self, value):
-        self.callback1_count.value = self.callback1_count.value + 1
-        raise PreventUpdate("testing callback does not update")
+        self.__class__.callback1_count.value = self.__class__.callback1_count.value + 1
+        raise PreventUpdate('testing callback does not update')
         return value
 
     def callback2(self, value):
-        self.callback2_count.value = self.callback2_count.value + 1
+        self.__class__.callback2_count.value = self.__class__.callback2_count.value + 1
         return value
 
 
@@ -147,7 +147,7 @@ class DashWildcardDataAttributes(DashView):
 
         self.dash.layout = html.Div([
             html.Div(
-                id="inner-element",
+                id='inner-element',
                 **{
                     'data-string': 'multiple words',
                     'data-number': 512,
