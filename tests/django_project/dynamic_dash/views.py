@@ -128,6 +128,7 @@ class DashAbortedCallback(DashView):
 
     def callback1(self, value):
         self.__class__.callback1_count.value = self.__class__.callback1_count.value + 1
+        print self.__class__.callback1_count.value, value
         raise PreventUpdate('testing callback does not update')
         return value
 
