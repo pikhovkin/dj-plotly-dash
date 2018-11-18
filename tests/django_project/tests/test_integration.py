@@ -252,54 +252,54 @@ class Tests(IntegrationTests):
 
         self.wait_for_element_by_css_selector('#inserted-input')
 
-    # def test_simple_callback(self):
-    #     self._simple_callback(dynamic_views.DashSimpleCallback)
-    #     self._simple_callback(static_views.DashSimpleCallback)
-    #
-    # def test_wildcard_callback(self):
-    #     self._wildcard_callback(dynamic_views.DashWildcardCallback)
-    #     self._wildcard_callback(static_views.DashWildcardCallback)
+    def test_simple_callback(self):
+        self._simple_callback(dynamic_views.DashSimpleCallback)
+        self._simple_callback(static_views.DashSimpleCallback)
+
+    def test_wildcard_callback(self):
+        self._wildcard_callback(dynamic_views.DashWildcardCallback)
+        self._wildcard_callback(static_views.DashWildcardCallback)
 
     def test_aborted_callback(self):
         self._aborted_callback(dynamic_views.DashAbortedCallback)
         self._aborted_callback(static_views.DashAbortedCallback)
 
-    # def test_wildcard_data_attributes(self):
-    #     self._wildcard_data_attributes(dynamic_views.DashWildcardDataAttributes)
-    #     self._wildcard_data_attributes(static_views.DashWildcardDataAttributes)
-    #
-    # def test_flow_component(self):
-    #     self._flow_component(dynamic_views.DashFlowComponent)
-    #     self._flow_component(static_views.DashFlowComponent)
-    #
-    # def test_no_props_component(self):
-    #     self._no_props_component(dynamic_views.DashNoPropsComponent)
-    #     self._no_props_component(static_views.DashNoPropsComponent)
-    #
-    # def test_meta_tags(self):
-    #     self._meta_tags(dynamic_views.DashMetaTags)
-    #     self._meta_tags(static_views.DashMetaTags)
-    #
-    # def test_index_customization(self):
-    #     self._index_customization(dynamic_views.DashIndexCustomization)
-    #     self._index_customization(static_views.DashIndexCustomization)
-    #
-    # def test_assets(self):
-    #     self._assets(dynamic_views.DashAssets)
-    #     self._assets(static_views.DashAssets)
-    #
-    # def test_invalid_index_string(self):
-    #     self._invalid_index_string(dynamic_views.DashInvalidIndexString)
-    #     self._invalid_index_string(static_views.DashInvalidIndexString)
-    #
-    # def test_external_files_init(self):
-    #     self._external_files_init(dynamic_views.DashExternalFilesInit)
-    #     self._external_files_init(static_views.DashExternalFilesInit)
-    #
-    # def test_func_layout_accepted(self):
-    #     self._func_layout_accepted(dynamic_views.DashFuncLayoutAccepted)
-    #     self._func_layout_accepted(static_views.DashFuncLayoutAccepted)
-    #
-    # def test_late_component_register(self):
-    #     self._late_component_register(dynamic_views.DashLateComponentRegister)
-    #     self._late_component_register(static_views.DashLateComponentRegister)
+    def test_wildcard_data_attributes(self):
+        self._wildcard_data_attributes(dynamic_views.DashWildcardDataAttributes)
+        self._wildcard_data_attributes(static_views.DashWildcardDataAttributes)
+
+    def test_flow_component(self):
+        self._flow_component(dynamic_views.DashFlowComponent)
+        self._flow_component(static_views.DashFlowComponent)
+
+    def test_no_props_component(self):
+        self._no_props_component(dynamic_views.DashNoPropsComponent)
+        self._no_props_component(static_views.DashNoPropsComponent)
+
+    def test_meta_tags(self):
+        self._meta_tags(dynamic_views.DashMetaTags)
+        self._meta_tags(static_views.DashMetaTags)
+
+    def test_index_customization(self):
+        self._index_customization(dynamic_views.DashIndexCustomization)
+        self._index_customization(static_views.DashIndexCustomization)
+
+    def test_assets(self):
+        self._assets(dynamic_views.DashAssets)
+        self._assets(static_views.DashAssets)
+
+    def test_invalid_index_string(self):
+        self._invalid_index_string(dynamic_views.DashInvalidIndexString)
+        self._invalid_index_string(static_views.DashInvalidIndexString)
+
+    def test_external_files_init(self):
+        self._external_files_init(dynamic_views.DashExternalFilesInit)
+        self._external_files_init(static_views.DashExternalFilesInit)
+
+    def test_func_layout_accepted(self):
+        self._func_layout_accepted(dynamic_views.DashFuncLayoutAccepted)
+        self._func_layout_accepted(static_views.DashFuncLayoutAccepted)
+
+    def test_late_component_register(self):
+        self._late_component_register(dynamic_views.DashLateComponentRegister)
+        self._late_component_register(static_views.DashLateComponentRegister)
