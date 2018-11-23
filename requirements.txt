@@ -1,5 +1,5 @@
 plotly>=2.0.8
-dash_core_components==0.38.0
+dash_core_components==0.38.1
 dash_html_components>=0.12.0rc3
 dash-renderer>=0.14.1
 Django>=1.9,<2.2
