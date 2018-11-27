@@ -20,4 +20,4 @@ dist
 npm-debug*
 /.tox
 .idea
-/tests/django_project/static
+tests/django_project/static/

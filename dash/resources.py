@@ -77,8 +77,8 @@ class Css(object):
     def get_all_css(self, affix=''):
         return self._resources.get_all_resources(affix=affix)
 
-    # pylint: disable=old-style-class, no-init, too-few-public-methods
-    class config:
+    # pylint: disable=no-init, too-few-public-methods
+    class config(object):
         infer_from_layout = True
         serve_locally = False
 
@@ -97,7 +97,7 @@ class Scripts(object):
     def get_all_scripts(self, affix='', dev_bundles=False):
         return self._resources.get_all_resources(affix=affix, dev_bundles=dev_bundles)
 
-    # pylint: disable=old-style-class, no-init, too-few-public-methods
-    class config:
+    # pylint: disable=no-init, too-few-public-methods
+    class config(object):
         infer_from_layout = True
         serve_locally = False

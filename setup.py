@@ -14,6 +14,7 @@ setup(
     description=('A Python framework for building reactive web-apps. '
                  'Developed by Plotly.'),
     long_description=io.open('README.md', encoding='utf-8').read(),
+    long_description_content_type='text/markdown',
     install_requires=[
         'Django>=1.9,<2.2',
         'plotly>=2.0.8',

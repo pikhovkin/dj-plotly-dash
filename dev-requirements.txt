@@ -1,5 +1,5 @@
-;dash_core_components==0.35.1
-;dash_html_components>=0.12.0rc3
+;dash_core_components>=0.38.1
+;dash_html_components>=0.13.1
 ;dash_renderer>=0.14.1
 ;Django>=1.9,<2.2
 ;dash_flow_example==0.0.3
@@ -9,4 +9,4 @@ tox>=3.5.3
 plotly>=2.0.8
 pytest-django>=3.4.3
 flake8>=3.5.0
-pylint==2.1.1
+pylint==2.2.1
