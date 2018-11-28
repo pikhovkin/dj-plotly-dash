@@ -35,6 +35,7 @@ class DashView(BaseDashView):
 
 class DashSimpleCallback(DashView):
     dash_name = 'dash01'
+    dash_components = {dcc.__name__, html.__name__}
 
     call_count = Value('i', 0)
 
@@ -67,6 +68,7 @@ class DashSimpleCallback(DashView):
 
 class DashWildcardCallback(DashView):
     dash_name = 'dash02'
+    dash_components = {html.__name__, dcc.__name__}
 
     call_count = Value('i', 0)
 
@@ -105,6 +107,7 @@ class DashWildcardCallback(DashView):
 
 class DashAbortedCallback(DashView):
     dash_name = 'dash03'
+    dash_components = {html.__name__, dcc.__name__}
 
     initial_input = 'initial input'
     initial_output = 'initial output'
@@ -138,6 +141,7 @@ class DashAbortedCallback(DashView):
 
 class DashWildcardDataAttributes(DashView):
     dash_name = 'dash04'
+    dash_components = {html.__name__}
 
     test_time = datetime.datetime(2012, 1, 10, 2, 3)
     test_date = datetime.date(test_time.year, test_time.month, test_time.day)
@@ -161,6 +165,7 @@ class DashWildcardDataAttributes(DashView):
 
 class DashFlowComponent(DashView):
     dash_name = 'dash05'
+    dash_components = {html.__name__, dash_flow_example.__name__}
 
     def __init__(self, **kwargs):
         super(DashFlowComponent, self).__init__(**kwargs)
@@ -199,6 +204,7 @@ class DashFlowComponent(DashView):
 
 class DashNoPropsComponent(DashView):
     dash_name = 'dash06'
+    dash_components = {html.__name__, dash_dangerously_set_inner_html.__name__}
 
     def __init__(self, **kwargs):
         super(DashNoPropsComponent, self).__init__(**kwargs)
@@ -212,6 +218,7 @@ class DashNoPropsComponent(DashView):
 
 class DashMetaTags(DashView):
     dash_name = 'dash07'
+    dash_components = {html.__name__}
 
     metas = [
         {'name': 'description', 'content': 'my dash app'},
@@ -226,6 +233,7 @@ class DashMetaTags(DashView):
 
 class DashIndexCustomization(DashView):
     dash_name = 'dash08'
+    dash_components = {html.__name__}
 
     def __init__(self, **kwargs):
         super(DashIndexCustomization, self).__init__(**kwargs)
@@ -268,6 +276,8 @@ class DashIndexCustomization(DashView):
 
 class DashAssets(DashView):
     dash_name = 'dash09'
+    dash_components = {html.__name__, dcc.__name__}
+
     dash_template = '''
         <!DOCTYPE html>
         <html>
@@ -297,6 +307,7 @@ class DashAssets(DashView):
 
 class DashInvalidIndexString(DashView):
     dash_name = 'dash10'
+    dash_components = {html.__name__}
 
     def __init__(self, **kwargs):
         super(DashInvalidIndexString, self).__init__(**kwargs)
@@ -307,6 +318,7 @@ class DashInvalidIndexString(DashView):
 
 class DashExternalFilesInit(DashView):
     dash_name = 'dash11'
+    dash_components = {html.__name__}
 
     js_files = [
         'https://www.google-analytics.com/analytics.js',
@@ -363,6 +375,7 @@ class DashExternalFilesInit(DashView):
 
 class DashFuncLayoutAccepted(DashView):
     dash_name = 'dash12'
+    dash_components = {html.__name__}
 
     def __init__(self, **kwargs):
         super(DashFuncLayoutAccepted, self).__init__(**kwargs)
@@ -375,6 +388,7 @@ class DashFuncLayoutAccepted(DashView):
 
 class DashLateComponentRegister(DashView):
     dash_name = 'dash13'
+    dash_components = {html.__name__, dcc.__name__}
 
     def __init__(self, **kwargs):
         super(DashLateComponentRegister, self).__init__(**kwargs)

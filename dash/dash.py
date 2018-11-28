@@ -104,8 +104,11 @@ class Dash(object):
                  assets_ignore='',
                  suppress_callback_exceptions=None,
                  components_cache_max_age=None,
+                 components=None,
                  **kwargs):
         self._assets_folder = assets_folder
+
+        self.components = components
 
         self.url_base_pathname = url_base_pathname
         self.config = _AttributeDict({
@@ -257,7 +260,8 @@ class Dash(object):
 
     def _generate_css_dist_html(self):
         links = self._external_stylesheets + \
-                self._collect_and_register_resources(self.css.get_all_css(affix=getattr(self, '_res_affix', '')))
+                self._collect_and_register_resources(self.css.get_all_css(affix=getattr(self, '_res_affix', ''),
+                                                                          module_names=self.components))
 
         return '\n'.join([
             _format_tag('link', link, opened=True)
@@ -281,6 +285,7 @@ class Dash(object):
             )) + self._external_scripts + self._collect_and_register_resources(
                 self.scripts.get_all_scripts(
                     affix=getattr(self, '_res_affix', ''),
+                    module_names=self.components,
                     dev_bundles=self._dev_tools.serve_dev_bundles) +
                 self.scripts._resources._filter_resources(
                     dash_renderer._js_dist,
@@ -854,6 +859,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
     dash_assets_folder = None
     dash_assets_ignore = ''
     dash_prefix = ''  # For additional special urls
+    dash_components = None
     _dashes = {}
 
     def __init__(self, **kwargs):
@@ -897,6 +903,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
             self.dash._assets_folder = dash_assets_folder
         if dash_assets_ignore and self.dash.assets_ignore != dash_assets_ignore:
             self.dash.assets_ignore = dash_assets_ignore
+        self.dash.components = set(self.dash_components or [])
 
     @staticmethod
     def _dash_base_url(path, part):

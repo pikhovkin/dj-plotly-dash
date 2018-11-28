@@ -17,7 +17,7 @@ class ComponentRegistry(object):
     __dist_cache = {}
 
     @classmethod
-    def get_resources(cls, resource_name, affix=''):
+    def get_resources(cls, resource_name, affix='', module_names=None):
         cached = cls.__dist_cache.get(resource_name + affix)
 
         if cached:
@@ -26,6 +26,9 @@ class ComponentRegistry(object):
         cls.__dist_cache[resource_name + affix] = resources = []
 
         for module_name in cls.registry:
+            if module_names and module_name not in module_names and module_names != 'dash_renderer':
+                continue
+
             module = sys.modules[module_name]
             resources.extend(getattr(module, resource_name, []))
 

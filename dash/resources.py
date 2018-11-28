@@ -56,8 +56,8 @@ class Resources(object):
 
         return filtered_resources
 
-    def get_all_resources(self, affix='', dev_bundles=False):
-        all_resources = ComponentRegistry.get_resources(self.resource_name, affix=affix)
+    def get_all_resources(self, affix='', module_names=None, dev_bundles=False):
+        all_resources = ComponentRegistry.get_resources(self.resource_name, affix=affix, module_names=module_names)
         all_resources.extend(self._resources)
 
         return self._filter_resources(all_resources, dev_bundles)
@@ -74,8 +74,8 @@ class Css(object):
     def append_css(self, stylesheet):
         self._resources.append_resource(stylesheet)
 
-    def get_all_css(self, affix=''):
-        return self._resources.get_all_resources(affix=affix)
+    def get_all_css(self, affix='', module_names=None):
+        return self._resources.get_all_resources(affix=affix, module_names=module_names)
 
     # pylint: disable=no-init, too-few-public-methods
     class config(object):
@@ -94,8 +94,8 @@ class Scripts(object):
     def append_script(self, script):
         self._resources.append_resource(script)
 
-    def get_all_scripts(self, affix='', dev_bundles=False):
-        return self._resources.get_all_resources(affix=affix, dev_bundles=dev_bundles)
+    def get_all_scripts(self, affix='', module_names=None, dev_bundles=False):
+        return self._resources.get_all_resources(affix=affix, module_names=module_names, dev_bundles=dev_bundles)
 
     # pylint: disable=no-init, too-few-public-methods
     class config(object):
