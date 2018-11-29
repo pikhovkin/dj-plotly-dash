@@ -104,6 +104,7 @@ class Dash(object):
                  assets_ignore='',
                  suppress_callback_exceptions=None,
                  components_cache_max_age=None,
+                 serve_dev_bundles=False,
                  components=None,
                  **kwargs):
         self._assets_folder = assets_folder
@@ -143,7 +144,7 @@ class Dash(object):
         self.routes = []
 
         self._dev_tools = _AttributeDict({
-            'serve_dev_bundles': False
+            'serve_dev_bundles': serve_dev_bundles
         })
 
     @property
@@ -859,6 +860,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
     dash_assets_folder = None
     dash_assets_ignore = ''
     dash_prefix = ''  # For additional special urls
+    dash_serve_dev_bundles = False
     dash_components = None
     _dashes = {}
 
@@ -870,6 +872,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
         dash_external_stylesheets = kwargs.pop('dash_external_stylesheets', self.dash_external_stylesheets)
         dash_assets_folder = kwargs.pop('dash_assets_folder', self.dash_assets_folder)
         dash_assets_ignore = kwargs.pop('dash_assets_ignore', self.dash_assets_ignore)
+        dash_serve_dev_bundles = kwargs.pop('dash_serve_dev_bundles', self.dash_serve_dev_bundles)
 
         super(BaseDashView, self).__init__(**kwargs)
 
@@ -903,6 +906,8 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
             self.dash._assets_folder = dash_assets_folder
         if dash_assets_ignore and self.dash.assets_ignore != dash_assets_ignore:
             self.dash.assets_ignore = dash_assets_ignore
+        if dash_serve_dev_bundles and self.dash._dev_tools.serve_dev_bundles != dash_serve_dev_bundles:
+            self.dash._dev_tools.serve_dev_bundles = dash_serve_dev_bundles
         self.dash.components = set(self.dash_components or [])
 
     @staticmethod
