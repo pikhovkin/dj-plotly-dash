@@ -96,6 +96,7 @@ class DashWildcardCallback(DashView):
     def update_text(data):
         return data
 
+
 DashWildcardCallback.dash.callback(Output('output-1', 'data-cb'),
                                    [Input('input', 'value')])(DashWildcardCallback.update_data)
 
@@ -131,6 +132,7 @@ class DashAbortedCallback(DashView):
     def callback2(value):
         DashAbortedCallback.callback2_count.value = DashAbortedCallback.callback2_count.value + 1
         return value
+
 
 DashAbortedCallback.dash.callback(Output('output1', 'children'),
                                   [Input('input', 'value')])(DashAbortedCallback.callback1)

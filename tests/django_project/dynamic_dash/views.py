@@ -315,7 +315,6 @@ class DashInvalidIndexString(DashView):
         self.dash.layout = html.Div()
 
 
-
 class DashExternalFilesInit(DashView):
     dash_name = 'dash11'
     dash_components = {html.__name__}

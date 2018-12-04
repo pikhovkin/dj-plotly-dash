@@ -1,6 +1,6 @@
 from django.conf.urls import include, url
 
-from .dash import BaseDashView
+from .views import BaseDashView
 
 
 urlpatterns = [
@@ -14,5 +14,6 @@ urlpatterns = [
             r'(?P<path_in_package_dist>[\-\w_.@0-9]+)',
             BaseDashView.serve_dash_component_suites),
         url(r'^_dash-routes', BaseDashView.serve_dash_routes),
+        url(r'^_reload-hash', BaseDashView.serve_reload_hash)
     ]))
 ]

@@ -11,13 +11,10 @@ import re
 
 import plotly
 import dash_renderer
-import six
 
 from django.contrib.staticfiles.utils import get_files
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.http import HttpResponse, JsonResponse as BaseJsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import View
+from django.http import JsonResponse as BaseJsonResponse
 from django.conf import settings
 
 from .dependencies import Event, Input, Output, State
@@ -27,13 +24,12 @@ from . import exceptions
 from ._utils import AttributeDict as _AttributeDict
 from ._utils import interpolate_str as _interpolate
 from ._utils import format_tag as _format_tag
+# from ._utils import generate_hash as _generate_hash
+# from ._utils import get_asset_path as _get_asset_path
 
 
 __all__ = (
-    'JsonResponse',
-    'MetaDashView',
     'Dash',
-    'BaseDashView'
 )
 
 
@@ -42,20 +38,6 @@ class JsonResponse(BaseJsonResponse):
                  json_dumps_params=None, **kwargs):
         super(JsonResponse, self).__init__(data, encoder=encoder, safe=safe,
                                            json_dumps_params=json_dumps_params, **kwargs)
-
-
-class MetaDashView(type):
-    def __new__(cls, name, bases, attrs):
-        new_cls = super(MetaDashView, cls).__new__(cls, name, bases, attrs)
-
-        if new_cls.__dict__.get('dash_name', ''):
-            new_cls._dashes[new_cls.__dict__['dash_name']] = new_cls   # pylint: disable=protected-access
-            dash_prefix = getattr(new_cls, 'dash_prefix', '').strip()
-            if dash_prefix:
-                # pylint: disable=protected-access
-                new_cls._dashes[dash_prefix + new_cls.__dict__['dash_name']] = new_cls
-
-        return new_cls
 
 
 _default_index = '''<!DOCTYPE html>
@@ -144,28 +126,19 @@ class Dash(object):
         self.routes = []
 
         self._dev_tools = _AttributeDict({
-            'serve_dev_bundles': serve_dev_bundles
+            'serve_dev_bundles': serve_dev_bundles,
+            'hot_reload': False,
+            'hot_reload_interval': 3000,
+            'hot_reload_watch_interval': 0.5,
+            'hot_reload_max_retry': 8
         })
 
-    @property
-    def index_string(self):
-        return self._index_string
-
-    @index_string.setter
-    def index_string(self, value):
-        checks = (
-            (_re_index_entry.search(value), 'app_entry'),
-            (_re_index_config.search(value), 'config',),
-            (_re_index_scripts.search(value), 'scripts'),
-        )
-        missing = [missing for check, missing in checks if not check]
-        if missing:
-            raise Exception(
-                'Did you forget to include {} in your index string ?'.format(
-                    ', '.join('{%' + x + '%}' for x in missing)
-                )
-            )
-        self._index_string = value
+        # hot reload
+        self._reload_hash = None
+        self._hard_reload = False
+        # self._lock = threading.RLock()
+        self._watch_thread = None
+        self._changed_assets = []
 
     @property
     def layout(self):
@@ -197,11 +170,55 @@ class Dash(object):
         self.css._update_layout(layout_value)
         self.scripts._update_layout(layout_value)
 
+    @property
+    def index_string(self):
+        return self._index_string
+
+    @index_string.setter
+    def index_string(self, value):
+        checks = (
+            (_re_index_entry.search(value), 'app_entry'),
+            (_re_index_config.search(value), 'config',),
+            (_re_index_scripts.search(value), 'scripts'),
+        )
+        missing = [missing for check, missing in checks if not check]
+        if missing:
+            raise Exception(
+                'Did you forget to include {} in your index string ?'.format(
+                    ', '.join('{%' + x + '%}' for x in missing)
+                )
+            )
+        self._index_string = value
+
     def _config(self):
-        return {
+        config = {
             'url_base_pathname': self.url_base_pathname,
-            'requests_pathname_prefix': self.config.requests_pathname_prefix
+            'requests_pathname_prefix': self.config['requests_pathname_prefix']
         }
+        if self._dev_tools.hot_reload:
+            config['hot_reload'] = {
+                'interval': self._dev_tools.hot_reload_interval,
+                'max_retry': self._dev_tools.hot_reload_max_retry
+            }
+        return config
+
+    def serve_reload_hash(self):
+        hard = self._hard_reload
+        changed = self._changed_assets
+        # self._lock.acquire()
+        self._hard_reload = False
+        self._changed_assets = []
+        # self._lock.release()
+
+        return {
+            'reloadHash': self._reload_hash,
+            'hard': hard,
+            'packages': list(self.registered_paths.keys()),
+            'files': list(changed)
+        }
+
+    def serve_routes(self, *args, **kwargs):  # pylint: disable=unused-argument
+        return self.routes
 
     def _collect_and_register_resources(self, resources):
         # now needs the app context.
@@ -329,6 +346,24 @@ class Dash(object):
 
         return '\n      '.join(tags)
 
+    # pylint: disable=unused-argument
+    def serve_component_suites(self, package_name, path_in_package_dist, *args, **kwargs):
+        """ Serve the JS bundles for each package
+        """
+        if package_name not in self.registered_paths:
+            raise exceptions.InvalidResourceError(
+                'Error loading dependency.\n'
+                '"{}" is not a registered library.\n'
+                'Registered libraries are: {}'.format(package_name, list(self.registered_paths.keys())))
+
+        elif path_in_package_dist not in self.registered_paths[package_name]:
+            raise exceptions.InvalidResourceError(
+                '"{}" is registered but the path requested is not valid.\n'
+                'The path requested: "{}"\n'
+                'List of registered paths: {}'.format(package_name, path_in_package_dist, self.registered_paths))
+
+        return pkgutil.get_data(package_name, path_in_package_dist)
+
     def index(self, *args, **kwargs):  # pylint: disable=unused-argument
         if self._assets_folder:
             self._walk_assets_directory()
@@ -449,34 +484,6 @@ class Dash(object):
             'Yo! `react` is no longer used. \n'
             'Use `callback` instead. `callback` has a new syntax too, '
             'so make sure to call `help(app.callback)` to learn more.')
-
-    # pylint: disable=unused-argument
-    def serve_component_suites(self, package_name, path_in_package_dist, *args, **kwargs):
-        """ Serve the JS bundles for each package
-        """
-        if package_name not in self.registered_paths:
-            raise exceptions.InvalidResourceError(
-                'Error loading dependency.\n'
-                '"{}" is not a registered library.\n'
-                'Registered libraries are: {}'
-                .format(package_name, list(self.registered_paths.keys())))
-
-        elif path_in_package_dist not in self.registered_paths[package_name]:
-            raise exceptions.InvalidResourceError(
-                '"{}" is registered but the path requested is not valid.\n'
-                'The path requested: "{}"\n'
-                'List of registered paths: {}'
-                .format(
-                    package_name,
-                    path_in_package_dist,
-                    self.registered_paths
-                )
-            )
-
-        return pkgutil.get_data(package_name, path_in_package_dist)
-
-    def serve_routes(self, *args, **kwargs):  # pylint: disable=unused-argument
-        return self.routes
 
     def _validate_callback(self, output, inputs, state, events):
         # pylint: disable=too-many-branches
@@ -849,132 +856,47 @@ class Dash(object):
             elif f.endswith('favicon.ico'):
                 self._favicon = path
 
-
-class BaseDashView(six.with_metaclass(MetaDashView, View)):
-    dash_template = None
-    dash_base_url = '/'
-    dash_name = None
-    dash_meta_tags = None
-    dash_external_scripts = None
-    dash_external_stylesheets = None
-    dash_assets_folder = None
-    dash_assets_ignore = ''
-    dash_prefix = ''  # For additional special urls
-    dash_serve_dev_bundles = False
-    dash_components = None
-    _dashes = {}
-
-    def __init__(self, **kwargs):
-        dash_base_url = kwargs.pop('dash_base_url', self.dash_base_url)
-        dash_template = kwargs.pop('dash_template', self.dash_template)
-        dash_meta_tags = kwargs.pop('dash_meta_tags', self.dash_meta_tags)
-        dash_external_scripts = kwargs.pop('dash_external_scripts', self.dash_external_scripts)
-        dash_external_stylesheets = kwargs.pop('dash_external_stylesheets', self.dash_external_stylesheets)
-        dash_assets_folder = kwargs.pop('dash_assets_folder', self.dash_assets_folder)
-        dash_assets_ignore = kwargs.pop('dash_assets_ignore', self.dash_assets_ignore)
-        dash_serve_dev_bundles = kwargs.pop('dash_serve_dev_bundles', self.dash_serve_dev_bundles)
-
-        super(BaseDashView, self).__init__(**kwargs)
-
-        dash = getattr(self, 'dash', None)
-        if not isinstance(dash, Dash):
-            self.dash = Dash()
-
-        setattr(self.dash, '_res_affix', '_{}'.format(id(self.__class__)))
-
-        if dash_base_url and self.dash.url_base_pathname != dash_base_url:
-            self.dash.url_base_pathname = dash_base_url  # pylint: disable=access-member-before-definition
-            # pylint: disable=access-member-before-definition
-            self.dash.config.requests_pathname_prefix = dash_base_url
-
-        if dash_template and self.dash.index_string != dash_template:
-            self.dash.index_string = dash_template
-        if dash_meta_tags and self.dash._meta_tags != dash_meta_tags:  # pylint: disable=protected-access
-            # pylint: disable=protected-access, access-member-before-definition
-            self.dash._meta_tags = dash_meta_tags
-        # pylint: disable=protected-access
-        if dash_external_scripts and self.dash._external_scripts != dash_external_scripts:
-            # pylint: disable=protected-access, access-member-before-definition
-            self.dash._external_scripts = dash_external_scripts
-        # pylint: disable=protected-access
-        if dash_external_stylesheets and self.dash._external_stylesheets != dash_external_stylesheets:
-            # pylint: disable=protected-access, access-member-before-definition
-            self.dash._external_stylesheets = dash_external_stylesheets
-        # pylint: disable=protected-access
-        if dash_assets_folder and self.dash._assets_folder != dash_assets_folder:
-            # pylint: disable=protected-access, access-member-before-definition
-            self.dash._assets_folder = dash_assets_folder
-        if dash_assets_ignore and self.dash.assets_ignore != dash_assets_ignore:
-            self.dash.assets_ignore = dash_assets_ignore
-        if dash_serve_dev_bundles and self.dash._dev_tools.serve_dev_bundles != dash_serve_dev_bundles:
-            self.dash._dev_tools.serve_dev_bundles = dash_serve_dev_bundles
-        self.dash.components = set(self.dash_components or [])
-
-    @staticmethod
-    def _dash_base_url(path, part):
-        return path[:path.find(part) + 1]
-
-    def _dash_index(self, request, *args, **kwargs):  # pylint: disable=unused-argument
-        return HttpResponse(self.dash.index())
-
-    def _dash_dependencies(self, request, *args, **kwargs):  # pylint: disable=unused-argument
-        return JsonResponse(self.dash.dependencies())
-
-    def _dash_layout(self, request, *args, **kwargs):  # pylint: disable=unused-argument
-        # TODO - Set browser cache limit - pass hash into frontend
-        return JsonResponse(self.dash._layout_value())  # pylint: disable=protected-access
-
-    def _dash_upd_component(self, request, *args, **kwargs):  # pylint: disable=unused-argument
-        body = json.loads(request.body)
-
-        output = body['output']
-        inputs = body.get('inputs', [])
-        state = body.get('state', [])
-
-        return self.dash.update_component(output, inputs, state)
-
-    def _dash_component_suites(self, request, *args, **kwargs):  # pylint: disable=unused-argument
-        ext = kwargs.get('path_in_package_dist', '').split('.')[-1]
-        mimetype = {
-            'js': 'application/JavaScript',
-            'css': 'text/css'
-        }[ext]
-
-        response = HttpResponse(self.dash.serve_component_suites(*args, **kwargs), content_type=mimetype)
-        response['Cache-Control'] = 'public, max-age={}'.format(self.dash.config.components_cache_max_age)
-
-        return response
-
-    def _dash_routes(self, request, *args, **kwargs):  # pylint: disable=unused-argument
-        return JsonResponse(self.dash.serve_routes(*args, **kwargs))
-
-    @classmethod
-    def serve_dash_index(cls, request, dash_name, *args, **kwargs):
-        view = cls._dashes[dash_name](dash_base_url=request.path)
-        return view._dash_index(request, *args, **kwargs)   # pylint: disable=protected-access
-
-    @classmethod
-    def serve_dash_dependencies(cls, request, dash_name, *args, **kwargs):
-        view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-dependencies'))
-        return view._dash_dependencies(request, *args, **kwargs)   # pylint: disable=protected-access
-
-    @classmethod
-    def serve_dash_layout(cls, request, dash_name, *args, **kwargs):
-        view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-layout'))
-        return view._dash_layout(request, *args, **kwargs)   # pylint: disable=protected-access
-
-    @classmethod
-    @csrf_exempt
-    def serve_dash_upd_component(cls, request, dash_name, *args, **kwargs):
-        view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-update-component'))
-        return view._dash_upd_component(request, *args, **kwargs)   # pylint: disable=protected-access
-
-    @classmethod
-    def serve_dash_component_suites(cls, request, dash_name, *args, **kwargs):
-        view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-component-suites'))
-        return view._dash_component_suites(request, *args, **kwargs)   # pylint: disable=protected-access
-
-    @classmethod
-    def serve_dash_routes(cls, request, dash_name, *args, **kwargs):
-        view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-routes'))
-        return view._dash_routes(request, *args, **kwargs)   # pylint: disable=protected-access
+    # # noinspection PyProtectedMember
+    # def _on_assets_change(self, filename, modified, deleted):
+    #     self._lock.acquire()
+    #     self._hard_reload = True
+    #     self._reload_hash = _generate_hash()
+    #
+    #     asset_path = os.path.relpath(
+    #         filename, os.path.commonprefix([self._assets_folder, filename])) \
+    #         .replace('\\', '/').lstrip('/')
+    #
+    #     self._changed_assets.append({
+    #         'url': self.get_asset_url(asset_path),
+    #         'modified': int(modified),
+    #         'is_css': filename.endswith('css')
+    #     })
+    #
+    #     if filename not in self._assets_files and not deleted:
+    #         res = self._add_assets_resource(asset_path, filename)
+    #         if filename.endswith('js'):
+    #             self.scripts.append_script(res)
+    #         elif filename.endswith('css'):
+    #             self.css.append_css(res)
+    #
+    #     if deleted:
+    #         if filename in self._assets_files:
+    #             self._assets_files.remove(filename)
+    #
+    #         def delete_resource(resources):
+    #             to_delete = None
+    #             for r in resources:
+    #                 if r.get('asset_path') == asset_path:
+    #                     to_delete = r
+    #                     break
+    #             if to_delete:
+    #                 resources.remove(to_delete)
+    #
+    #         if filename.endswith('js'):
+    #             # pylint: disable=protected-access
+    #             delete_resource(self.scripts._resources._resources)
+    #         elif filename.endswith('css'):
+    #             # pylint: disable=protected-access
+    #             delete_resource(self.css._resources._resources)
+    #
+    #     self._lock.release()
