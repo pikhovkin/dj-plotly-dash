@@ -35,9 +35,10 @@ See examples of usage in `tests/django_project`
 ### Installation
 
 ```bash
+$ pip install "dash_renderer>=0.14.1"
 $ pip install dj-plotly-dash
-$ pip install dash_core_components>=0.35.1 --no-deps
-$ pip install dash_html_components>=0.12.0rc3 --no-deps
+$ pip install "dash_core_components>=0.35.1" --no-deps
+$ pip install "dash_html_components>=0.12.0rc3" --no-deps
 ```
 
 ### Documentation

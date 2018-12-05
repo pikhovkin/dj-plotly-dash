@@ -18,7 +18,7 @@ setup(
     install_requires=[
         'Django>=1.9,<2.2',
         'plotly>=2.0.8',
-        'dash_renderer>=0.14.1',
+        # 'dash_renderer>=0.14.1',
     ],
     url='https://github.com/pikhovkin/dj-plotly-dash',
     classifiers=[
