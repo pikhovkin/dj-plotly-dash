@@ -5,16 +5,16 @@ from collections import OrderedDict
 
 from django.contrib.staticfiles import utils
 from django.core.files.storage import FileSystemStorage
-from django.contrib.staticfiles.finders import BaseFinder
+from django.contrib.staticfiles.finders import FileSystemFinder
 
 from ..development.base_component import ComponentRegistry
 
 
-class DashComponentSuitesFinder(BaseFinder):
+class DashComponentSuitesFinder(FileSystemFinder):
     prefix = '_dash-component-suites/'
     ignore_patterns = ['*.py', '*.pyc', '*.json']
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):  # pylint: disable=super-init-not-called
         self.locations = []
         self.storages = OrderedDict()
 
@@ -30,12 +30,10 @@ class DashComponentSuitesFinder(BaseFinder):
             filesystem_storage.prefix = prefix
             self.storages[root] = filesystem_storage
 
-        super(DashComponentSuitesFinder, self).__init__(*args, **kwargs)
-
     def list(self, ignore_patterns):
         """ List static files in all locations.
         """
-        for prefix, root in self.locations:
+        for prefix, root in self.locations:  # pylint: disable=unused-variable
             storage = self.storages[root]
             for path in utils.get_files(storage, ignore_patterns=self.ignore_patterns + (ignore_patterns or [])):
                 yield path, storage
