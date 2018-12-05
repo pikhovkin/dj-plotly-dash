@@ -90,3 +90,10 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # DASH_COMPONENT_SUITES_URL = STATIC_URL
+
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    # 'dash.staticfiles.finders.DashComponentSuitesFinder',
+]
+
