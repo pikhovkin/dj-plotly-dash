@@ -74,7 +74,8 @@ _re_index_config_id = re.compile(r'id="_dash-config"')
 _re_index_scripts_id = re.compile(r'src=".*dash[-_]renderer.*"')
 
 
-# pylint: disable=too-many-instance-attributes, too-many-arguments, too-many-locals
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-arguments, too-many-locals
 class Dash(object):
     # pylint: disable=unused-argument
     def __init__(self, url_base_pathname='/',
@@ -249,11 +250,17 @@ class Dash(object):
 
         srcs = []
         for resource in resources:
+            is_dynamic_resource = resource.get('dynamic', False)
+
             if 'relative_package_path' in resource:
-                if isinstance(resource['relative_package_path'], str):
-                    srcs.append(_relative_url_path(path_prefix, **resource))
-                else:
-                    for rel_path in resource['relative_package_path']:
+                paths = resource['relative_package_path']
+                paths = [paths] if isinstance(paths, str) else paths
+
+                for rel_path in paths:
+                    self.registered_paths[resource['namespace']]\
+                        .add(rel_path)
+
+                    if not is_dynamic_resource:
                         srcs.append(_relative_url_path(
                             path_prefix,
                             relative_package_path=rel_path,

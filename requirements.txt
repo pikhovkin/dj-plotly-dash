@@ -1,4 +1,4 @@
-;dash_core_components==0.35.1
+;dash_core_components>=0.40.2
 ;dash_html_components>=0.14.0rc4
 plotly>=2.0.8
 dash-renderer>=0.14.1

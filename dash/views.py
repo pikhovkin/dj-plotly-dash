@@ -118,7 +118,8 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
         ext = kwargs.get('path_in_package_dist', '').split('.')[-1]
         mimetype = {
             'js': 'application/JavaScript',
-            'css': 'text/css'
+            'css': 'text/css',
+            'map': 'application/json',
         }[ext]
 
         response = HttpResponse(self.dash.serve_component_suites(*args, **kwargs), content_type=mimetype)
