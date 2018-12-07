@@ -4,6 +4,11 @@ from setuptools import setup, find_packages
 main_ns = {}
 exec(open('dash/version.py').read(), main_ns)  # pylint: disable=exec-used
 
+general_requires = [
+    'Django>=1.9,<2.2',
+    'plotly>=2.0.8'
+]
+
 setup(
     name='dj-plotly-dash',
     version=main_ns['__version__'],
@@ -15,11 +20,11 @@ setup(
                  'Developed by Plotly.'),
     long_description=io.open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
-    install_requires=[
-        'Django>=1.9,<2.2',
-        'plotly>=2.0.8',
-        # 'dash_renderer>=0.14.1',
-    ],
+    install_requires=[],
+    extras_require={
+        'all': general_requires + ['dash_renderer>=0.14.1'],
+        'no-dash-renderer': general_requires
+    },
     url='https://github.com/pikhovkin/dj-plotly-dash',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
