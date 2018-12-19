@@ -24,8 +24,6 @@ from . import exceptions
 from ._utils import AttributeDict as _AttributeDict
 from ._utils import interpolate_str as _interpolate
 from ._utils import format_tag as _format_tag
-# from ._utils import generate_hash as _generate_hash
-# from ._utils import get_asset_path as _get_asset_path
 
 
 __all__ = (
@@ -136,10 +134,6 @@ class Dash(object):
 
         # hot reload
         self._reload_hash = None
-        self._hard_reload = False
-        # self._lock = threading.RLock()
-        self._watch_thread = None
-        self._changed_assets = []
 
     @property
     def layout(self):
@@ -156,7 +150,7 @@ class Dash(object):
     def layout(self, value):
         if (not isinstance(value, Component) and
                 not isinstance(value, collections.Callable)):
-            raise Exception(
+            raise exceptions.NoLayoutException(
                 ''
                 'Layout must be a dash component '
                 'or a function that returns '
@@ -184,7 +178,7 @@ class Dash(object):
         )
         missing = [missing for check, missing in checks if not check]
         if missing:
-            raise Exception(
+            raise exceptions.InvalidIndexException(
                 'Did you forget to include {} in your index string ?'.format(
                     ', '.join('{%' + x + '%}' for x in missing)
                 )
@@ -203,19 +197,12 @@ class Dash(object):
             }
         return config
 
-    def serve_reload_hash(self):
-        hard = self._hard_reload
-        changed = self._changed_assets
-        # self._lock.acquire()
-        self._hard_reload = False
-        self._changed_assets = []
-        # self._lock.release()
-
+    def serve_reload_hash(self, *args, **kwargs):
         return {
             'reloadHash': self._reload_hash,
-            'hard': hard,
+            'hard': True,
             'packages': list(self.registered_paths.keys()),
-            'files': list(changed)
+            'files': []
         }
 
     def serve_routes(self, *args, **kwargs):  # pylint: disable=unused-argument
@@ -227,9 +214,6 @@ class Dash(object):
         # add the version number of the package as a query parameter
         # for cache busting
         def _relative_url_path(path_prefix, relative_package_path='', namespace=''):
-
-            # track the registered packages
-            self.registered_paths[namespace].add(relative_package_path)
 
             module_path = os.path.join(
                 os.path.dirname(sys.modules[namespace].__file__),
@@ -358,13 +342,13 @@ class Dash(object):
         """ Serve the JS bundles for each package
         """
         if package_name not in self.registered_paths:
-            raise exceptions.InvalidResourceError(
+            raise exceptions.DependencyException(
                 'Error loading dependency.\n'
                 '"{}" is not a registered library.\n'
                 'Registered libraries are: {}'.format(package_name, list(self.registered_paths.keys())))
 
         elif path_in_package_dist not in self.registered_paths[package_name]:
-            raise exceptions.InvalidResourceError(
+            raise exceptions.DependencyException(
                 '"{}" is registered but the path requested is not valid.\n'
                 'The path requested: "{}"\n'
                 'List of registered paths: {}'.format(package_name, path_in_package_dist, self.registered_paths))
@@ -415,7 +399,7 @@ class Dash(object):
 
         if missing:
             plural = 's' if len(missing) > 1 else ''
-            raise Exception(
+            raise exceptions.InvalidIndexException(
                 'Missing element{pl} {ids} in index.'.format(
                     ids=', '.join(missing),
                     pl=plural
@@ -603,7 +587,7 @@ class Dash(object):
                 Without `Input` or `Event` elements, this callback
                 will never get called.\n
                 (Subscribing to input components will cause the
-                callback to be called whenver their values
+                callback to be called whenever their values
                 change and subscribing to an event will cause the
                 callback to be called whenever the event is fired.)
             '''.format(
@@ -862,48 +846,3 @@ class Dash(object):
                 self.css.append_css(add_resource(path, full))
             elif f.endswith('favicon.ico'):
                 self._favicon = path
-
-    # # noinspection PyProtectedMember
-    # def _on_assets_change(self, filename, modified, deleted):
-    #     self._lock.acquire()
-    #     self._hard_reload = True
-    #     self._reload_hash = _generate_hash()
-    #
-    #     asset_path = os.path.relpath(
-    #         filename, os.path.commonprefix([self._assets_folder, filename])) \
-    #         .replace('\\', '/').lstrip('/')
-    #
-    #     self._changed_assets.append({
-    #         'url': self.get_asset_url(asset_path),
-    #         'modified': int(modified),
-    #         'is_css': filename.endswith('css')
-    #     })
-    #
-    #     if filename not in self._assets_files and not deleted:
-    #         res = self._add_assets_resource(asset_path, filename)
-    #         if filename.endswith('js'):
-    #             self.scripts.append_script(res)
-    #         elif filename.endswith('css'):
-    #             self.css.append_css(res)
-    #
-    #     if deleted:
-    #         if filename in self._assets_files:
-    #             self._assets_files.remove(filename)
-    #
-    #         def delete_resource(resources):
-    #             to_delete = None
-    #             for r in resources:
-    #                 if r.get('asset_path') == asset_path:
-    #                     to_delete = r
-    #                     break
-    #             if to_delete:
-    #                 resources.remove(to_delete)
-    #
-    #         if filename.endswith('js'):
-    #             # pylint: disable=protected-access
-    #             delete_resource(self.scripts._resources._resources)
-    #         elif filename.endswith('css'):
-    #             # pylint: disable=protected-access
-    #             delete_resource(self.css._resources._resources)
-    #
-    #     self._lock.release()

@@ -2,13 +2,14 @@ from __future__ import print_function
 
 import json
 
-import six
-
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
+from django.conf import settings
+from django.utils import six
 
 from .dash import Dash, JsonResponse
+from ._utils import generate_hash
 
 
 __all__ = (
@@ -28,10 +29,17 @@ class MetaDashView(type):
                 # pylint: disable=protected-access
                 new_cls._dashes[dash_prefix + new_cls.__dict__['dash_name']] = new_cls
 
+        new_cls._dash_hot_reload_hash = generate_hash()
+
+        if new_cls.__dict__.get('dash_hot_reload', None) is None:
+            new_cls.dash_hot_reload = getattr(settings, 'DASH_HOT_RELOAD', False)
+
         return new_cls
 
 
 class BaseDashView(six.with_metaclass(MetaDashView, View)):
+    _dashes = {}
+
     dash_template = None
     dash_base_url = '/'
     dash_name = None
@@ -43,7 +51,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
     dash_prefix = ''  # For additional special urls
     dash_serve_dev_bundles = False
     dash_components = None
-    _dashes = {}
+    dash_hot_reload = None
 
     def __init__(self, **kwargs):
         dash_base_url = kwargs.pop('dash_base_url', self.dash_base_url)
@@ -54,6 +62,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
         dash_assets_folder = kwargs.pop('dash_assets_folder', self.dash_assets_folder)
         dash_assets_ignore = kwargs.pop('dash_assets_ignore', self.dash_assets_ignore)
         dash_serve_dev_bundles = kwargs.pop('dash_serve_dev_bundles', self.dash_serve_dev_bundles)
+        dash_hot_reload = kwargs.pop('dash_hot_reload', self.dash_hot_reload)
 
         super(BaseDashView, self).__init__(**kwargs)
 
@@ -89,7 +98,11 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
             self.dash.assets_ignore = dash_assets_ignore
         if dash_serve_dev_bundles and self.dash._dev_tools.serve_dev_bundles != dash_serve_dev_bundles:
             self.dash._dev_tools.serve_dev_bundles = dash_serve_dev_bundles
+        if self.dash._dev_tools.hot_reload != dash_hot_reload:
+            self.dash._dev_tools.hot_reload = dash_hot_reload
+
         self.dash.components = set(self.dash_components or [])
+        self.dash._reload_hash = self._dash_hot_reload_hash
 
     @staticmethod
     def _dash_base_url(path, part):
@@ -166,5 +179,5 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
 
     @classmethod
     def serve_reload_hash(cls, request, dash_name, *args, **kwargs):
-        view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-routes'))
+        view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_reload-hash'))
         return view._dash_reload_hash(request, *args, **kwargs)   # pylint: disable=protected-access

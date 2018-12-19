@@ -84,10 +84,11 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-
 STATIC_URL = '/static/'
-
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+
+# Dash settings
 
 # DASH_COMPONENT_SUITES_URL = STATIC_URL
 
@@ -97,3 +98,4 @@ STATICFILES_FINDERS = [
     # 'dash.staticfiles.finders.DashComponentSuitesFinder',
 ]
 
+DASH_HOT_RELOAD = False
