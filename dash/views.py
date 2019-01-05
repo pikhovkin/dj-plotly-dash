@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from django.conf import settings
 from django.utils import six
+from django.core.exceptions import ImproperlyConfigured
 
 from .dash import Dash, JsonResponse
 from ._utils import generate_hash
@@ -29,10 +30,13 @@ class MetaDashView(type):
                 # pylint: disable=protected-access
                 new_cls._dashes[dash_prefix + new_cls.__dict__['dash_name']] = new_cls
 
-        new_cls._dash_hot_reload_hash = generate_hash()
+        new_cls._dash_hot_reload_hash = generate_hash()   # pylint: disable=protected-access
 
         if new_cls.__dict__.get('dash_hot_reload', None) is None:
-            new_cls.dash_hot_reload = getattr(settings, 'DASH_HOT_RELOAD', False)
+            try:
+                new_cls.dash_hot_reload = getattr(settings, 'DASH_HOT_RELOAD', False)
+            except ImproperlyConfigured:
+                new_cls.dash_hot_reload = False
 
         return new_cls
 
@@ -102,7 +106,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
             self.dash._dev_tools.hot_reload = dash_hot_reload
 
         self.dash.components = set(self.dash_components or [])
-        self.dash._reload_hash = self._dash_hot_reload_hash
+        self.dash._reload_hash = self._dash_hot_reload_hash  # pylint: disable=no-member
 
     @staticmethod
     def _dash_base_url(path, part):

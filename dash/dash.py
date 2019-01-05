@@ -16,6 +16,7 @@ from django.contrib.staticfiles.utils import get_files
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import JsonResponse as BaseJsonResponse
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 from .dependencies import Event, Input, Output, State
 from .resources import Scripts, Css
@@ -229,7 +230,11 @@ class Dash(object):
                 modified
             )
 
-        DASH_COMPONENT_SUITES_URL = getattr(settings, 'DASH_COMPONENT_SUITES_URL', '')
+        try:
+            DASH_COMPONENT_SUITES_URL = getattr(settings, 'DASH_COMPONENT_SUITES_URL', '')
+        except ImproperlyConfigured:
+            DASH_COMPONENT_SUITES_URL = ''
+
         path_prefix = DASH_COMPONENT_SUITES_URL or self.config['requests_pathname_prefix']
 
         srcs = []
@@ -241,8 +246,7 @@ class Dash(object):
                 paths = [paths] if isinstance(paths, str) else paths
 
                 for rel_path in paths:
-                    self.registered_paths[resource['namespace']]\
-                        .add(rel_path)
+                    self.registered_paths[resource['namespace']].add(rel_path)
 
                     if not is_dynamic_resource:
                         srcs.append(_relative_url_path(
@@ -251,11 +255,12 @@ class Dash(object):
                             namespace=resource['namespace']
                         ))
             elif 'external_url' in resource:
-                if isinstance(resource['external_url'], str):
-                    srcs.append(resource['external_url'])
-                else:
-                    for url in resource['external_url']:
-                        srcs.append(url)
+                if not is_dynamic_resource:
+                    if isinstance(resource['external_url'], str):
+                        srcs.append(resource['external_url'])
+                    else:
+                        for url in resource['external_url']:
+                            srcs.append(url)
             elif 'absolute_path' in resource:
                 raise Exception(
                     'Serving files from absolute_path isn\'t supported yet'
