@@ -15,15 +15,12 @@ from dash.exceptions import PreventUpdate
 
 
 class DashView(BaseDashView):
-    @staticmethod
-    def set_config(dash, dash_name):
-        dash.config.suppress_callback_exceptions = True
-        dash.config.routes_pathname_prefix = '/dash/{}/'.format(dash_name)
-        dash.css.config.serve_locally = True
-        dash.scripts.config.serve_locally = True
+    def __init__(self, **kwargs):
+        super(DashView, self).__init__(**kwargs)
 
-    def get(self, request, *args, **kwargs):
-        return self.serve_dash_index(request, self.dash_name, *args, **kwargs)
+        self.dash.config.routes_pathname_prefix = '/dash/{}/'.format(self.dash_name)
+        self.dash.css.config.serve_locally = True
+        self.dash.scripts.config.serve_locally = True
 
 
 class DashSimpleCallback(DashView):
@@ -31,9 +28,6 @@ class DashSimpleCallback(DashView):
     dash_components = {dcc.__name__, html.__name__}
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div([
         dcc.Input(
             id='input',
@@ -64,9 +58,6 @@ class DashWildcardCallback(DashView):
     dash_components = {html.__name__, dcc.__name__}
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div([
         dcc.Input(
             id='input',
@@ -109,9 +100,6 @@ class DashAbortedCallback(DashView):
     initial_output = 'initial output'
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div([
         dcc.Input(id='input', value=initial_input),
         html.Div(initial_output, id='output1'),
@@ -146,9 +134,6 @@ class DashWildcardDataAttributes(DashView):
     test_date = datetime.date(test_time.year, test_time.month, test_time.day)
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div([
         html.Div(
             id='inner-element',
@@ -168,9 +153,6 @@ class DashFlowComponent(DashView):
     dash_components = {html.__name__, dash_flow_example.__name__}
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div([
         dash_flow_example.ExampleReactComponent(
             id='react',
@@ -207,9 +189,6 @@ class DashNoPropsComponent(DashView):
     dash_components = {html.__name__, dash_dangerously_set_inner_html.__name__}
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div([
         dash_dangerously_set_inner_html.DangerouslySetInnerHTML('''
             <h1>No Props Component</h1>
@@ -227,84 +206,27 @@ class DashMetaTags(DashView):
     ]
 
     dash = Dash(meta_tags=metas)
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div(id='content')
 
 
 class DashIndexCustomization(DashView):
     dash_name = 'static_dash08'
     dash_components = {html.__name__}
+    template_name = 'dash_index_customization.html'
 
     dash = Dash()
-    dash.index_string = '''
-    <!DOCTYPE html>
-    <html>
-        <head>
-            {%metas%}
-            <title>{%title%}</title>
-            {%favicon%}
-            {%css%}
-        </head>
-        <body>
-            <div id="custom-header">My custom header</div>
-            <div id="add"></div>
-            {%app_entry%}
-            <footer>
-                {%config%}
-                {%scripts%}
-            </footer>
-            <div id="custom-footer">My custom footer</div>
-            <script>
-            // Test the formatting doesn't mess up script tags.
-            var elem = document.getElementById('add');
-            if (!elem) {
-                throw Error('could not find container to add');
-            }
-            elem.innerHTML = 'Got added';
-            var config = {};
-            fetch('/nonexist').then(r => r.json())
-                .then(r => config = r).catch(err => ({config}));
-            </script>
-        </body>
-    </html>
-    '''
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div('Dash app', id='app')
 
 
 class DashAssets(DashView):
     dash_name = 'static_dash09'
     dash_components = {html.__name__, dcc.__name__}
+    template_name = 'dash_assets.html'
 
-    dash_template = '''
-    <!DOCTYPE html>
-    <html>
-        <head>
-            {%metas%}
-            <title>{%title%}</title>
-            {%css%}
-        </head>
-        <body>
-            <div id="tested"></div>
-            {%app_entry%}
-            <footer>
-                {%config%}
-                {%scripts%}
-            </footer>
-        </body>
-    </html>
-    '''
     dash_assets_folder = 'static_dash/assets'
     dash_assets_ignore = '*ignored.*'
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div([html.Div(id='content'), dcc.Input(id='test')], id='layout')
 
 
@@ -313,15 +235,13 @@ class DashInvalidIndexString(DashView):
     dash_components = {html.__name__}
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div()
 
 
 class DashExternalFilesInit(DashView):
     dash_name = 'static_dash11'
     dash_components = {html.__name__}
+    template_name = 'dash_external_files_init.html'
 
     js_files = [
         'https://www.google-analytics.com/analytics.js',
@@ -349,29 +269,6 @@ class DashExternalFilesInit(DashView):
     ]
 
     dash = Dash(external_scripts=js_files, external_stylesheets=css_files)
-    dash.index_string = '''
-    <!DOCTYPE html>
-    <html>
-        <head>
-            {%metas%}
-            <title>{%title%}</title>
-            {%css%}
-        </head>
-        <body>
-            <div id="tested"></div>
-            <div id="ramda-test">Hello World</div>
-            <button type="button" id="btn">Btn</button>
-            {%app_entry%}
-            <footer>
-                {%config%}
-                {%scripts%}
-            </footer>
-        </body>
-    </html>
-    '''
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div()
 
 
@@ -380,9 +277,6 @@ class DashFuncLayoutAccepted(DashView):
     dash_components = {html.__name__}
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = lambda: html.Div('Hello World')
 
 
@@ -391,9 +285,6 @@ class DashLateComponentRegister(DashView):
     dash_components = {html.__name__, dcc.__name__}
 
     dash = Dash()
-
-    DashView.set_config(dash, dash_name)  # As an opportunity
-
     dash.layout = html.Div([
         html.Button('Click me to put a dcc', id='btn-insert'),
         html.Div(id='output')

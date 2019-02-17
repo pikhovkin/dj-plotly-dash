@@ -7,7 +7,6 @@ import importlib
 import json
 import pkgutil
 from functools import wraps
-import re
 
 import plotly
 import dash_renderer
@@ -17,13 +16,13 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import JsonResponse as BaseJsonResponse
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.safestring import mark_safe
 
 from .dependencies import Event, Input, Output, State
 from .resources import Scripts, Css
 from .development.base_component import Component
 from . import exceptions
 from ._utils import AttributeDict as _AttributeDict
-from ._utils import interpolate_str as _interpolate
 from ._utils import format_tag as _format_tag
 
 
@@ -39,23 +38,6 @@ class JsonResponse(BaseJsonResponse):
                                            json_dumps_params=json_dumps_params, **kwargs)
 
 
-_default_index = '''<!DOCTYPE html>
-<html>
-    <head>
-        {%metas%}
-        <title>{%title%}</title>
-        {%favicon%}
-        {%css%}
-    </head>
-    <body>
-        {%app_entry%}
-        <footer>
-            {%config%}
-            {%scripts%}
-        </footer>
-    </body>
-</html>'''
-
 _app_entry = '''
 <div id="react-entry-point">
     <div class="_dash-loading">
@@ -64,27 +46,17 @@ _app_entry = '''
 </div>
 '''
 
-_re_index_entry = re.compile(r'{%app_entry%}')
-_re_index_config = re.compile(r'{%config%}')
-_re_index_scripts = re.compile(r'{%scripts%}')
-
-_re_index_entry_id = re.compile(r'id="react-entry-point"')
-_re_index_config_id = re.compile(r'id="_dash-config"')
-_re_index_scripts_id = re.compile(r'src=".*dash[-_]renderer.*"')
-
-
 # pylint: disable=too-many-instance-attributes
 # pylint: disable=too-many-arguments, too-many-locals
 class Dash(object):
     # pylint: disable=unused-argument
     def __init__(self, url_base_pathname='/',
                  meta_tags=None,
-                 index_string=_default_index,
                  external_scripts=None,
                  external_stylesheets=None,
                  assets_folder=None,
                  assets_ignore='',
-                 suppress_callback_exceptions=None,
+                 suppress_callback_exceptions=True,
                  components_cache_max_age=None,
                  serve_dev_bundles=False,
                  components=None,
@@ -105,8 +77,6 @@ class Dash(object):
         # list of dependencies
         self.callback_map = {}
 
-        self._index_string = ''
-        self.index_string = index_string
         self._meta_tags = meta_tags or []
         self._favicon = None
 
@@ -165,26 +135,6 @@ class Dash(object):
         # pylint: disable=protected-access
         self.css._update_layout(layout_value)
         self.scripts._update_layout(layout_value)
-
-    @property
-    def index_string(self):
-        return self._index_string
-
-    @index_string.setter
-    def index_string(self, value):
-        checks = (
-            (_re_index_entry.search(value), 'app_entry'),
-            (_re_index_config.search(value), 'config',),
-            (_re_index_scripts.search(value), 'scripts'),
-        )
-        missing = [missing for check, missing in checks if not check]
-        if missing:
-            raise exceptions.InvalidIndexException(
-                'Did you forget to include {} in your index string ?'.format(
-                    ', '.join('{%' + x + '%}' for x in missing)
-                )
-            )
-        self._index_string = value
 
     def _config(self):
         config = {
@@ -391,75 +341,15 @@ class Dash(object):
         #     'href': favicon_url
         # }, opened=True)
 
-        index = self.interpolate_index(
-            metas=metas, title=title, css=css, config=config,
-            scripts=scripts, app_entry=_app_entry, favicon=favicon)
-
-        checks = (
-            (_re_index_entry_id.search(index), '#react-entry-point'),
-            (_re_index_config_id.search(index), '#_dash-configs'),
-            (_re_index_scripts_id.search(index), 'dash-renderer'),
+        return dict(
+            metas=mark_safe(metas),
+            title=mark_safe(title),
+            css=mark_safe(css),
+            config=mark_safe(config),
+            scripts=mark_safe(scripts),
+            favicon=mark_safe(favicon),
+            app_entry=mark_safe(_app_entry)
         )
-        missing = [missing for check, missing in checks if not check]
-
-        if missing:
-            plural = 's' if len(missing) > 1 else ''
-            raise exceptions.InvalidIndexException(
-                'Missing element{pl} {ids} in index.'.format(
-                    ids=', '.join(missing),
-                    pl=plural
-                )
-            )
-
-        return index
-
-    def interpolate_index(self,
-                          metas='', title='', css='', config='',
-                          scripts='', app_entry='', favicon=''):
-        """
-        Called to create the initial HTML string that is loaded on page.
-        Override this method to provide you own custom HTML.
-
-        :Example:
-
-            class MyDash(dash.Dash):
-                def interpolate_index(self, **kwargs):
-                    return '''
-                    <!DOCTYPE html>
-                    <html>
-                        <head>
-                            <title>My App</title>
-                        </head>
-                        <body>
-                            <div id="custom-header">My custom header</div>
-                            {app_entry}
-                            {config}
-                            {scripts}
-                            <div id="custom-footer">My custom footer</div>
-                        </body>
-                    </html>
-                    '''.format(
-                        app_entry=kwargs.get('app_entry'),
-                        config=kwargs.get('config'),
-                        scripts=kwargs.get('scripts'))
-
-        :param metas: Collected & formatted meta tags.
-        :param title: The title of the app.
-        :param css: Collected & formatted css dependencies as <link> tags.
-        :param config: Configs needed by dash-renderer.
-        :param scripts: Collected & formatted scripts tags.
-        :param app_entry: Where the app will render.
-        :param favicon: A favicon <link> tag if found in assets folder.
-        :return: The interpolated HTML string for the index.
-        """
-        return _interpolate(self.index_string,
-                            metas=metas,
-                            title=title,
-                            css=css,
-                            config=config,
-                            scripts=scripts,
-                            favicon=favicon,
-                            app_entry=app_entry)
 
     def dependencies(self, *args, **kwargs):  # pylint: disable=unused-argument
         return [

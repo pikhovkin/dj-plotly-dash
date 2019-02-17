@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        {{ metas }}
+        <title>{{ title }}</title>
+        {{ favicon }}
+        {{ css }}
+    </head>
+    <body>
+        <div id="custom-header">My custom header</div>
+        <div id="add"></div>
+        {{ app_entry }}
+        <footer>
+            {{ config }}
+            {{ scripts }}
+        </footer>
+        <div id="custom-footer">My custom footer</div>
+        <script>
+        // Test the formatting doesn't mess up script tags.
+        var elem = document.getElementById('add');
+        if (!elem) {
+            throw Error('could not find container to add');
+        }
+        elem.innerHTML = 'Got added';
+        var config = {};
+        fetch('/nonexist').then(r => r.json())
+            .then(r => config = r).catch(err => ({config}));
+        </script>
+    </body>
+</html>

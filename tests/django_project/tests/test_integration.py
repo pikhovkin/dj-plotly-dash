@@ -3,8 +3,6 @@ import re
 import json
 import time
 
-import dash_html_components as html
-
 from .IntegrationTests import IntegrationTests
 from .utils import assert_clean_console, wait_for
 
@@ -187,39 +185,6 @@ class Tests(IntegrationTests):
         for i in range(len(tested)):
             self.assertEqual(order[i], tested[i])
 
-    def _invalid_index_string(self, view_class):
-        self.open('dash/{}/'.format(view_class.dash_name))
-
-        app = view_class().dash
-
-        def will_raise():
-            app.index_string = '''
-                <!DOCTYPE html>
-                <html>
-                    <head>
-                        {%metas%}
-                        <title>{%title%}</title>
-                        {%favicon%}
-                        {%css%}
-                    </head>
-                    <body>
-                        <div id="custom-header">My custom header</div>
-                        <div id="add"></div>
-                        <footer>
-                        </footer>
-                    </body>
-                </html>'''
-
-        with self.assertRaises(Exception) as context:
-            will_raise()
-
-        app.layout = html.Div()
-
-        exc_msg = str(context.exception)
-        self.assertTrue('{%app_entry%}' in exc_msg)
-        self.assertTrue('{%config%}' in exc_msg)
-        self.assertTrue('{%scripts%}' in exc_msg)
-
     def _external_files_init(self, view_class):
         self.open('dash/{}/'.format(view_class.dash_name))
 
@@ -287,10 +252,6 @@ class Tests(IntegrationTests):
     def test_assets(self):
         self._assets(dynamic_views.DashAssets)
         self._assets(static_views.DashAssets)
-
-    def test_invalid_index_string(self):
-        self._invalid_index_string(dynamic_views.DashInvalidIndexString)
-        self._invalid_index_string(static_views.DashInvalidIndexString)
 
     def test_external_files_init(self):
         self._external_files_init(dynamic_views.DashExternalFilesInit)

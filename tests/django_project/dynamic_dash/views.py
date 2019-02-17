@@ -18,13 +18,9 @@ class DashView(BaseDashView):
     def __init__(self, **kwargs):
         super(DashView, self).__init__(**kwargs)
 
-        self.dash.config.suppress_callback_exceptions = True
         self.dash.config.routes_pathname_prefix = '/dash/{}/'.format(self.dash_name)
         self.dash.css.config.serve_locally = True
         self.dash.scripts.config.serve_locally = True
-
-    def get(self, request, *args, **kwargs):
-        return self.serve_dash_index(request, self.dash_name, *args, **kwargs)
 
     def _dash_component_suites(self, request, *args, **kwargs):
         self.dash._generate_scripts_html()
@@ -238,64 +234,15 @@ class DashIndexCustomization(DashView):
     def __init__(self, **kwargs):
         super(DashIndexCustomization, self).__init__(**kwargs)
 
-        self.dash.index_string = '''
-        <!DOCTYPE html>
-        <html>
-            <head>
-                {%metas%}
-                <title>{%title%}</title>
-                {%favicon%}
-                {%css%}
-            </head>
-            <body>
-                <div id="custom-header">My custom header</div>
-                <div id="add"></div>
-                {%app_entry%}
-                <footer>
-                    {%config%}
-                    {%scripts%}
-                </footer>
-                <div id="custom-footer">My custom footer</div>
-                <script>
-                // Test the formatting doesn't mess up script tags.
-                var elem = document.getElementById('add');
-                if (!elem) {
-                    throw Error('could not find container to add');
-                }
-                elem.innerHTML = 'Got added';
-                var config = {};
-                fetch('/nonexist').then(r => r.json())
-                    .then(r => config = r).catch(err => ({config}));
-                </script>
-            </body>
-        </html>
-        '''
-
+        self.template_name = 'dash_index_customization.html'
         self.dash.layout = html.Div('Dash app', id='app')
 
 
 class DashAssets(DashView):
     dash_name = 'dash09'
     dash_components = {html.__name__, dcc.__name__}
+    template_name = 'dash_assets.html'
 
-    dash_template = '''
-        <!DOCTYPE html>
-        <html>
-            <head>
-                {%metas%}
-                <title>{%title%}</title>
-                {%css%}
-            </head>
-            <body>
-                <div id="tested"></div>
-                {%app_entry%}
-                <footer>
-                    {%config%}
-                    {%scripts%}
-                </footer>
-            </body>
-        </html>
-        '''
     dash_assets_folder = 'dynamic_dash/assets'
     dash_assets_ignore = '*ignored.*'
 
@@ -348,27 +295,7 @@ class DashExternalFilesInit(DashView):
         super(DashExternalFilesInit, self).__init__(dash_external_scripts=self.js_files,
                                                     dash_external_stylesheets=self.css_files, **kwargs)
 
-        self.dash.index_string = '''
-        <!DOCTYPE html>
-        <html>
-            <head>
-                {%metas%}
-                <title>{%title%}</title>
-                {%css%}
-            </head>
-            <body>
-                <div id="tested"></div>
-                <div id="ramda-test">Hello World</div>
-                <button type="button" id="btn">Btn</button>
-                {%app_entry%}
-                <footer>
-                    {%config%}
-                    {%scripts%}
-                </footer>
-            </body>
-        </html>
-        '''
-
+        self.template_name = 'dash_external_files_init.html'
         self.dash.layout = html.Div()
 
 

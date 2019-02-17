@@ -4,7 +4,7 @@ import json
 
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import View
+from django.views.generic import TemplateView
 from django.conf import settings
 from django.utils import six
 from django.core.exceptions import ImproperlyConfigured
@@ -41,10 +41,10 @@ class MetaDashView(type):
         return new_cls
 
 
-class BaseDashView(six.with_metaclass(MetaDashView, View)):
+class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
     _dashes = {}
 
-    dash_template = None
+    template_name = 'base.html'
     dash_base_url = '/'
     dash_name = None
     dash_meta_tags = None
@@ -59,7 +59,6 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
 
     def __init__(self, **kwargs):
         dash_base_url = kwargs.pop('dash_base_url', self.dash_base_url)
-        dash_template = kwargs.pop('dash_template', self.dash_template)
         dash_meta_tags = kwargs.pop('dash_meta_tags', self.dash_meta_tags)
         dash_external_scripts = kwargs.pop('dash_external_scripts', self.dash_external_scripts)
         dash_external_stylesheets = kwargs.pop('dash_external_stylesheets', self.dash_external_stylesheets)
@@ -81,8 +80,6 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
             # pylint: disable=access-member-before-definition
             self.dash.config.requests_pathname_prefix = dash_base_url
 
-        if dash_template and self.dash.index_string != dash_template:
-            self.dash.index_string = dash_template
         if dash_meta_tags and self.dash._meta_tags != dash_meta_tags:  # pylint: disable=protected-access
             # pylint: disable=protected-access, access-member-before-definition
             self.dash._meta_tags = dash_meta_tags
@@ -108,12 +105,17 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
         self.dash.components = set(self.dash_components or [])
         self.dash._reload_hash = self._dash_hot_reload_hash  # pylint: disable=no-member
 
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        context.update(**self._dash_index(request, *args, **kwargs))
+        return self.render_to_response(context)
+
     @staticmethod
     def _dash_base_url(path, part):
         return path[:path.find(part) + 1]
 
     def _dash_index(self, request, *args, **kwargs):  # pylint: disable=unused-argument
-        return HttpResponse(self.dash.index())
+        return self.dash.index()
 
     def _dash_dependencies(self, request, *args, **kwargs):  # pylint: disable=unused-argument
         return JsonResponse(self.dash.dependencies())
@@ -153,7 +155,10 @@ class BaseDashView(six.with_metaclass(MetaDashView, View)):
     @classmethod
     def serve_dash_index(cls, request, dash_name, *args, **kwargs):
         view = cls._dashes[dash_name](dash_base_url=request.path)
-        return view._dash_index(request, *args, **kwargs)   # pylint: disable=protected-access
+        view.request = request
+        view.args = args
+        view.kwargs = kwargs
+        return view.get(request, *args, **kwargs)   # pylint: disable=protected-access
 
     @classmethod
     def serve_dash_dependencies(cls, request, dash_name, *args, **kwargs):
