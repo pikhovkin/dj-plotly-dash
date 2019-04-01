@@ -2,4 +2,4 @@
 ;dash_html_components>=0.14.0rc4
 plotly>=2.0.8
 dash-renderer>=0.14.1
-Django>=1.9,<2.2
+Django==2.2
