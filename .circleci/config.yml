@@ -27,8 +27,8 @@ jobs:
       - run:
           name: Install dependencies
           command: |
-              sudo pip install virtualenv
-              virtualenv venv
+              sudo pip install --upgrade virtualenv
+              python -m venv venv || virtualenv venv
               . venv/bin/activate
               pip install tox
 

@@ -22,7 +22,7 @@ setup(
     long_description_content_type='text/markdown',
     install_requires=[],
     extras_require={
-        'all': general_requires + ['dash_renderer>=0.14.1'],
+        'all': general_requires + ['dash_renderer==0.19.0'],
         'no-dash-renderer': general_requires
     },
     url='https://github.com/pikhovkin/dj-plotly-dash',
