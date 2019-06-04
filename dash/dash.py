@@ -293,7 +293,7 @@ class Dash(object):
 
         return '\n      '.join(tags)
 
-    # pylint: disable=unused-argument, no-else-raise
+    # pylint: disable=unused-argument
     def serve_component_suites(self, package_name, path_in_package_dist, *args, **kwargs):
         """ Serve the JS bundles for each package
         """
