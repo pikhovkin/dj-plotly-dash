@@ -3,6 +3,9 @@ import re
 import json
 import time
 
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
+
 from .IntegrationTests import IntegrationTests
 from .utils import assert_clean_console, wait_for
 
@@ -14,61 +17,83 @@ class Tests(IntegrationTests):
     def _simple_callback(self, view_class):
         self.open('dash/{}/'.format(view_class.dash_name))
 
-        output1 = self.wait_for_element_by_id('output-1')
-        wait_for(lambda: output1.text == 'initial value', timeout=20)
+        # output1 = self.wait_for_element_by_id('output-1')
+        # wait_for(lambda: output1.text == 'initial value', timeout=20)
+
+        self.wait_for_text_to_equal('#output-1', 'initial value')
 
         input1 = self.wait_for_element_by_id('input')
-        input1.clear()
+        chain = (
+            ActionChains(self.driver)
+                .click(input1)
+                .send_keys(Keys.HOME)
+                .key_down(Keys.SHIFT)
+                .send_keys(Keys.END)
+                .key_up(Keys.SHIFT)
+                .send_keys(Keys.DELETE))
+        chain.perform()
 
         input1.send_keys('hello world')
 
-        output1 = self.wait_for_text_to_equal('#output-1', 'hello world')
+        self.wait_for_text_to_equal('#output-1', 'hello world')
 
         self.assertEqual(
             view_class.call_count.value,
             # an initial call to retrieve the first value
-            1 +
+            # and one for clearing the input
+            2 +
             # one for each hello world character
             len('hello world')
         )
 
-        assert_clean_console(self)
+        # assert_clean_console(self)
+        self.assertTrue(self.is_console_clean())
 
     def _wildcard_callback(self, view_class):
         self.open('dash/{}/'.format(view_class.dash_name))
 
-        output1 = self.wait_for_text_to_equal('#output-1', 'initial value')
+        self.wait_for_text_to_equal('#output-1', 'initial value')
 
-        input1 = self.wait_for_element_by_id('input')
-        input1.clear()
+        input1 = self.wait_for_element_by_css_selector('#input')
+        chain = (ActionChains(self.driver)
+                 .click(input1)
+                 .send_keys(Keys.HOME)
+                 .key_down(Keys.SHIFT)
+                 .send_keys(Keys.END)
+                 .key_up(Keys.SHIFT)
+                 .send_keys(Keys.DELETE))
+        chain.perform()
 
         input1.send_keys('hello world')
 
-        output1 = self.wait_for_text_to_equal('#output-1', 'hello world')
+        self.wait_for_text_to_equal('#output-1', 'hello world')
 
         self.assertEqual(
             view_class.call_count.value,
             # an initial call
-            1 +
+            # and a call for clearing the input
+            2 +
             # one for each hello world character
             len('hello world')
         )
 
-        assert_clean_console(self)
+        self.assertTrue(self.is_console_clean())
 
     def _aborted_callback(self, view_class):
-        """Raising PreventUpdate prevents update and triggering dependencies
+        """
+        Raising PreventUpdate OR returning no_update
+        prevents update and triggering dependencies
         """
         self.open('dash/{}/'.format(view_class.dash_name))
 
         input_ = self.wait_for_element_by_id('input')
-        input_.clear()
-        input_.send_keys('x')
+        input_.send_keys('xyz')
+        self.wait_for_text_to_equal('#input', 'initial inputxyz')
         output1 = self.wait_for_element_by_id('output1')
         output2 = self.wait_for_element_by_id('output2')
 
-        # callback1 runs twice (initial page load and through send_keys)
-        self.assertEqual(view_class.callback1_count.value, 2)
+        # callback1 runs 4x (initial page load and 3x through send_keys)
+        wait_for(lambda: view_class.callback1_count.value == 4)
 
         # callback2 is never triggered, even on initial load
         self.assertEqual(view_class.callback2_count.value, 0)
@@ -77,7 +102,7 @@ class Tests(IntegrationTests):
         self.assertEqual(output1.text, view_class.initial_output)
         self.assertEqual(output2.text, view_class.initial_output)
 
-        assert_clean_console(self)
+        self.assertTrue(self.is_console_clean())
 
     def _wildcard_data_attributes(self, view_class):
         self.open('dash/{}/'.format(view_class.dash_name))
@@ -86,7 +111,7 @@ class Tests(IntegrationTests):
 
         # React wraps text and numbers with e.g. <!-- react-text: 20 -->
         # Remove those
-        comment_regex = '<!--[^\[](.*?)-->'
+        comment_regex = r'<!--[^\[](.*?)-->'  # noqa: W605
 
         # Somehow the html attributes are unordered.
         # Try different combinations (they're all valid html)
@@ -119,7 +144,7 @@ class Tests(IntegrationTests):
                 )
             )
 
-        assert_clean_console(self)
+        self.assertTrue(self.is_console_clean())
 
     def _flow_component(self, view_class):
         self.open('dash/{}/'.format(view_class.dash_name))
@@ -129,7 +154,7 @@ class Tests(IntegrationTests):
     def _no_props_component(self, view_class):
         self.open('dash/{}/'.format(view_class.dash_name))
 
-        assert_clean_console(self)
+        self.assertTrue(self.is_console_clean())
 
     def _meta_tags(self, view_class):
         self.open('dash/{}/'.format(view_class.dash_name))

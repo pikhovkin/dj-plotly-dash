@@ -1,9 +1,12 @@
-import collections
 import abc
 import inspect
 import sys
 
 import six
+
+from .._utils import patch_collections_abc
+
+MutableSequence = patch_collections_abc('MutableSequence')
 
 
 # pylint: disable=no-init,too-few-public-methods
@@ -61,14 +64,13 @@ def is_number(s):
 def _check_if_has_indexable_children(item):
     if (not hasattr(item, 'children') or
             (not isinstance(item.children, Component) and
-             not isinstance(item.children, (tuple,
-                                            collections.MutableSequence)))):
+             not isinstance(item.children, (tuple, MutableSequence)))):
 
         raise KeyError
 
 
 @six.add_metaclass(ComponentMeta)
-class Component(collections.MutableMapping):
+class Component(object):
     class _UNDEFINED(object):
         def __repr__(self):
             return 'undefined'
@@ -137,8 +139,8 @@ class Component(collections.MutableMapping):
         if isinstance(self.children, Component):
             if getattr(self.children, 'id', None) is not None:
                 # Woohoo! It's the item that we're looking for
-                if self.children.id == id:  # pylint: disable=no-else-return
-                    if operation == 'get':  # pylint: disable=no-else-return
+                if self.children.id == id:
+                    if operation == 'get':
                         return self.children
                     elif operation == 'set':
                         self.children = new_item
@@ -149,7 +151,6 @@ class Component(collections.MutableMapping):
 
             # Recursively dig into its subtree
             try:
-                # pylint: disable=no-else-return
                 if operation == 'get':
                     return self.children.__getitem__(id)
                 elif operation == 'set':
@@ -162,11 +163,11 @@ class Component(collections.MutableMapping):
                 pass
 
         # if children is like a list
-        if isinstance(self.children, (tuple, collections.MutableSequence)):
+        if isinstance(self.children, (tuple, MutableSequence)):
             for i, item in enumerate(self.children):
                 # If the item itself is the one we're looking for
-                if getattr(item, 'id', None) == id:  # pylint: disable=no-else-return
-                    if operation == 'get':  # pylint: disable=no-else-return
+                if getattr(item, 'id', None) == id:
+                    if operation == 'get':
                         return item
                     elif operation == 'set':
                         self.children[i] = new_item
@@ -178,7 +179,7 @@ class Component(collections.MutableMapping):
                 # Otherwise, recursively dig into that item's subtree
                 # Make sure it's not like a string
                 elif isinstance(item, Component):
-                    try:  # pylint: disable=no-else-return
+                    try:
                         if operation == 'get':
                             return item.__getitem__(id)
                         elif operation == 'set':
@@ -194,7 +195,7 @@ class Component(collections.MutableMapping):
         # If we were in a list, then this exception will get caught
         raise KeyError(id)
 
-    # Supply ABC methods for a MutableMapping:
+    # Magic methods for a mapping interface:
     # - __getitem__
     # - __setitem__
     # - __delitem__
@@ -218,12 +219,12 @@ class Component(collections.MutableMapping):
         """Delete items by ID in the tree of children."""
         return self._get_set_or_delete(id, 'delete')
 
-    def traverse(self):
+    def _traverse(self):
         """Yield each item in the tree."""
-        for t in self.traverse_with_paths():
+        for t in self._traverse_with_paths():
             yield t[1]
 
-    def traverse_with_paths(self):
+    def _traverse_with_paths(self):
         """Yield each item with its path in the tree."""
         children = getattr(self, 'children', None)
         children_type = type(children).__name__
@@ -234,11 +235,12 @@ class Component(collections.MutableMapping):
         # children is just a component
         if isinstance(children, Component):
             yield "[*] " + children_string, children
-            for p, t in children.traverse_with_paths():
+            # pylint: disable=protected-access
+            for p, t in children._traverse_with_paths():
                 yield "\n".join(["[*] " + children_string, p]), t
 
         # children is a list of components
-        elif isinstance(children, (tuple, collections.MutableSequence)):
+        elif isinstance(children, (tuple, MutableSequence)):
             for idx, i in enumerate(children):
                 list_path = "[{:d}] {:s} {}".format(
                     idx,
@@ -248,12 +250,13 @@ class Component(collections.MutableMapping):
                 yield list_path, i
 
                 if isinstance(i, Component):
-                    for p, t in i.traverse_with_paths():
+                    # pylint: disable=protected-access
+                    for p, t in i._traverse_with_paths():
                         yield "\n".join([list_path, p]), t
 
     def __iter__(self):
         """Yield IDs in the tree of children."""
-        for t in self.traverse():
+        for t in self._traverse():
             if (isinstance(t, Component) and
                     getattr(t, 'id', None) is not None):
 
@@ -271,7 +274,7 @@ class Component(collections.MutableMapping):
         elif isinstance(self.children, Component):
             length = 1
             length += len(self.children)
-        elif isinstance(self.children, (tuple, collections.MutableSequence)):
+        elif isinstance(self.children, (tuple, MutableSequence)):
             for c in self.children:
                 length += 1
                 if isinstance(c, Component):
@@ -280,6 +283,35 @@ class Component(collections.MutableMapping):
             # string or number
             length = 1
         return length
+
+    def __repr__(self):
+        # pylint: disable=no-member
+        props_with_values = [
+            c for c in self._prop_names
+            if getattr(self, c, None) is not None
+        ] + [
+            c for c in self.__dict__
+            if any(
+                c.startswith(wc_attr)
+                for wc_attr in self._valid_wildcard_attributes
+            )
+        ]
+        if any(
+                p != 'children'
+                for p in props_with_values
+        ):
+            props_string = ", ".join(
+                '{prop}={value}'.format(
+                    prop=p,
+                    value=repr(getattr(self, p))
+                ) for p in props_with_values
+            )
+        else:
+            props_string = repr(getattr(self, 'children', None))
+        return "{type}({props_string})".format(
+            type=self._type,
+            props_string=props_string
+        )
 
 
 def _explicitize_args(func):

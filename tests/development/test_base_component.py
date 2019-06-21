@@ -1,5 +1,4 @@
 from collections import OrderedDict
-import collections
 import inspect
 import json
 import os
@@ -7,11 +6,18 @@ import shutil
 import unittest
 import plotly
 
-from dash.development.base_component import (
-    Component,
-    _explicitize_args)
-from dash.development._py_components_generation import generate_class_string, generate_class_file, generate_class, \
-    create_docstring, parse_events, js_to_py_type
+from dash.development.base_component import Component
+from dash.development.component_generator import reserved_words
+from dash.development._py_components_generation import (
+    generate_class_string,
+    generate_class_file,
+    generate_class,
+    create_docstring,
+    prohibit_events,
+    js_to_py_type
+)
+
+_dir = os.path.dirname(os.path.abspath(__file__))
 
 Component._prop_names = ('id', 'a', 'children', 'style', )
 Component._type = 'TestComponent'
@@ -87,8 +93,9 @@ class TestComponent(unittest.TestCase):
 
     def test_get_item_with_nested_children_with_mixed_strings_and_without_lists(self):  # noqa: E501
         c, c1, c2, c3, c4, c5 = nested_tree()
+        keys = [k for k in c]
         self.assertEqual(
-            list(c.keys()),
+            keys,
             [
                 '0.0',
                 '0.1',
@@ -137,7 +144,8 @@ class TestComponent(unittest.TestCase):
 
     def test_del_item_with_nested_children_with_mixed_strings_and_without_lists(self):  # noqa: E501
         c = nested_tree()[0]
-        for key in reversed(list(c.keys())):
+        keys = reversed([k for k in c])
+        for key in keys:
             c[key]
             del c[key]
             with self.assertRaises(KeyError):
@@ -145,7 +153,7 @@ class TestComponent(unittest.TestCase):
 
     def test_traverse_with_nested_children_with_mixed_strings_and_without_lists(self):  # noqa: E501
         c, c1, c2, c3, c4, c5 = nested_tree()
-        elements = [i for i in c.traverse()]
+        elements = [i for i in c._traverse()]
         self.assertEqual(
             elements,
             c.children + [c3] + [c2] + c2.children
@@ -155,18 +163,11 @@ class TestComponent(unittest.TestCase):
         c, c1, c2, c3, c4, c5 = nested_tree()
         c2.children = tuple(c2.children)
         c.children = tuple(c.children)
-        elements = [i for i in c.traverse()]
+        elements = [i for i in c._traverse()]
         self.assertEqual(
             elements,
             list(c.children) + [c3] + [c2] + list(c2.children)
         )
-
-    def test_iter_with_nested_children_with_mixed_strings_and_without_lists(self):  # noqa: E501
-        c = nested_tree()[0]
-        keys = list(c.keys())
-        # get a list of ids that __iter__ provides
-        iter_keys = [i for i in c]
-        self.assertEqual(keys, iter_keys)
 
     def test_to_plotly_json_with_nested_children_with_mixed_strings_and_without_lists(self):  # noqa: E501
         c = nested_tree()[0]
@@ -246,17 +247,6 @@ class TestComponent(unittest.TestCase):
         with self.assertRaises(KeyError):
             c3['0']
 
-    def test_equality(self):
-        # TODO - Why is this the case? How is == being performed?
-        # __eq__ only needs __getitem__, __iter__, and __len__
-        self.assertTrue(Component() == Component())
-        self.assertTrue(Component() is not Component())
-
-        c1 = Component(id='1')
-        c2 = Component(id='2', children=[Component()])
-        self.assertTrue(c1 == c2)
-        self.assertTrue(c1 is not c2)
-
     def test_set_item(self):
         c1a = Component(id='1', children='Hello world')
         c2 = Component(id='2', children=c1a)
@@ -282,7 +272,7 @@ class TestComponent(unittest.TestCase):
 
         c3b = Component(id='3')
         self.assertEqual(c5['3'], c3)
-        self.assertTrue(c5['3'] is not '3')
+        self.assertTrue(c5['3'] != '3')
         self.assertTrue(c5['3'] is not c3b)
 
         c5['3'] = c3b
@@ -452,6 +442,9 @@ class TestComponent(unittest.TestCase):
         ])), 3)
 
     def test_iter(self):
+        # The mixin methods from MutableMapping were cute but probably never
+        # used - at least not by us. Test that they're gone
+
         # keys, __contains__, items, values, and more are all mixin methods
         # that we get for free by inheriting from the MutableMapping
         # and behave as according to our implementation of __iter__
@@ -471,39 +464,37 @@ class TestComponent(unittest.TestCase):
                 Component(children=[Component(id='8')]),
             ]
         )
-        # test keys()
-        keys = [k for k in list(c.keys())]
-        self.assertEqual(keys, ['2', '3', '4', '5', '6', '7', '8'])
-        self.assertEqual([i for i in c], keys)
 
-        # test values()
-        components = [i for i in list(c.values())]
-        self.assertEqual(components, [c[k] for k in keys])
+        mixins = ['clear', 'get', 'items', 'keys', 'pop', 'popitem',
+                  'setdefault', 'update', 'values']
 
-        # test __iter__()
+        for m in mixins:
+            assert not hasattr(c, m), 'should not have method ' + m
+
+        keys = ['2', '3', '4', '5', '6', '7', '8']
+
         for k in keys:
             # test __contains__()
-            self.assertTrue(k in c)
+            assert k in c, 'should find key ' + k
+            # test __getitem__()
+            assert c[k].id == k, 'key {} points to the right item'.format(k)
 
-        # test __items__
-        items = [i for i in list(c.items())]
-        self.assertEqual(list(zip(keys, components)), items)
+        # test __iter__()
+        keys2 = []
+        for k in c:
+            keys2.append(k)
+            assert k in keys, 'iteration produces key ' + k
 
-    def test_pop(self):
-        c2 = Component(id='2')
-        c = Component(id='1', children=c2)
-        c2_popped = c.pop('2')
-        self.assertTrue('2' not in c)
-        self.assertTrue(c2_popped is c2)
+        assert len(keys) == len(keys2), 'iteration produces no extra keys'
 
 
 class TestGenerateClassFile(unittest.TestCase):
     def setUp(self):
-        json_path = os.path.join('tests', 'development', 'metadata_test.json')
+        json_path = os.path.join(_dir, 'metadata_test.json')
         with open(json_path) as data_file:
             json_string = data_file.read()
             data = json\
-                .JSONDecoder(object_pairs_hook=collections.OrderedDict)\
+                .JSONDecoder(object_pairs_hook=OrderedDict)\
                 .decode(json_string)
             self.data = data
 
@@ -538,35 +529,39 @@ class TestGenerateClassFile(unittest.TestCase):
             self.written_class_string = f.read()
 
         # The expected result for both class string and class file generation
-        expected_string_path = os.path.join(
-            'tests', 'development', 'metadata_test.py'
-        )
+        expected_string_path = os.path.join(_dir, 'metadata_test.py')
         with open(expected_string_path, 'r') as f:
             self.expected_class_string = f.read()
 
     def tearDown(self):
         shutil.rmtree('TableComponents')
 
+    def assert_no_trailing_spaces(self, s):
+        for line in s.split('\n'):
+            self.assertEqual(line, line.rstrip())
+
     def test_class_string(self):
         self.assertEqual(
             self.expected_class_string,
             self.component_class_string
         )
+        self.assert_no_trailing_spaces(self.component_class_string)
 
     def test_class_file(self):
         self.assertEqual(
             self.expected_class_string,
             self.written_class_string
         )
+        self.assert_no_trailing_spaces(self.written_class_string)
 
 
 class TestGenerateClass(unittest.TestCase):
     def setUp(self):
-        path = os.path.join('tests', 'development', 'metadata_test.json')
+        path = os.path.join(_dir, 'metadata_test.json')
         with open(path) as data_file:
             json_string = data_file.read()
             data = json\
-                .JSONDecoder(object_pairs_hook=collections.OrderedDict)\
+                .JSONDecoder(object_pairs_hook=OrderedDict)\
                 .decode(json_string)
             self.data = data
 
@@ -577,13 +572,11 @@ class TestGenerateClass(unittest.TestCase):
             namespace='TableComponents'
         )
 
-        path = os.path.join(
-            'tests', 'development', 'metadata_required_test.json'
-        )
+        path = os.path.join(_dir, 'metadata_required_test.json')
         with open(path) as data_file:
             json_string = data_file.read()
             required_data = json\
-                .JSONDecoder(object_pairs_hook=collections.OrderedDict)\
+                .JSONDecoder(object_pairs_hook=OrderedDict)\
                 .decode(json_string)
             self.required_data = required_data
 
@@ -685,10 +678,10 @@ class TestGenerateClass(unittest.TestCase):
     def test_docstring(self):
         assert_docstring(self.assertEqual, self.ComponentClass.__doc__)
 
-    def test_events(self):
+    def test_no_events(self):
         self.assertEqual(
-            self.ComponentClass().available_events,
-            ['restyle', 'relayout', 'click']
+            hasattr(self.ComponentClass(), 'available_events'),
+            False
         )
 
     # This one is kind of pointless now
@@ -714,6 +707,7 @@ class TestGenerateClass(unittest.TestCase):
              'optionalUnion',
              'optionalArrayOf',
              'optionalObjectOf',
+             'optionalObjectWithExactAndNestedDescription',
              'optionalObjectWithShapeAndNestedDescription',
              'optionalAny',
              'customProp',
@@ -733,7 +727,7 @@ class TestGenerateClass(unittest.TestCase):
         if hasattr(inspect, 'signature'):
             self.assertEqual(
                 [str(x) for x in inspect.getargspec(__init__func).defaults],
-                ['None'] + ['undefined'] * 19
+                ['None'] + ['undefined'] * 20
             )
 
     def test_required_props(self):
@@ -745,14 +739,36 @@ class TestGenerateClass(unittest.TestCase):
         with self.assertRaises(Exception):
             self.ComponentClassRequired(children='test')
 
+    def test_attrs_match_forbidden_props(self):
+        assert '_.*' in reserved_words, 'props cannot have leading underscores'
+
+        # props are not added as attrs unless explicitly provided
+        # except for children, which is always set if it's a prop at all.
+        expected_attrs = set(reserved_words + ['children']) - set(['_.*'])
+        c = self.ComponentClass()
+        base_attrs = set(dir(c))
+        extra_attrs = set(a for a in base_attrs if a[0] != '_')
+
+        assert extra_attrs == expected_attrs, \
+            'component has only underscored and reserved word attrs'
+
+        # setting props causes them to show up as attrs
+        c2 = self.ComponentClass('children', id='c2', optionalArray=[1])
+        prop_attrs = set(dir(c2))
+
+        assert base_attrs - prop_attrs == set([]), 'no attrs were removed'
+        assert (
+            prop_attrs - base_attrs == set(['id', 'optionalArray'])
+        ), 'explicit props were added as attrs'
+
 
 class TestMetaDataConversions(unittest.TestCase):
     def setUp(self):
-        path = os.path.join('tests', 'development', 'metadata_test.json')
+        path = os.path.join(_dir, 'metadata_test.json')
         with open(path) as data_file:
             json_string = data_file.read()
             data = json\
-                .JSONDecoder(object_pairs_hook=collections.OrderedDict)\
+                .JSONDecoder(object_pairs_hook=OrderedDict)\
                 .decode(json_string)
             self.data = data
 
@@ -790,14 +806,27 @@ class TestMetaDataConversions(unittest.TestCase):
             ['optionalObjectOf',
              'dict with strings as keys and values of type number'],
 
-            ['optionalObjectWithShapeAndNestedDescription', '\n'.join([
+            ['optionalObjectWithExactAndNestedDescription', '\n'.join([
 
                 "dict containing keys 'color', 'fontSize', 'figure'.",
-                "Those keys have the following types: ",
+                "Those keys have the following types:",
                 "  - color (string; optional)",
                 "  - fontSize (number; optional)",
                 "  - figure (optional): Figure is a plotly graph object. figure has the following type: dict containing keys 'data', 'layout'.",  # noqa: E501
-                "Those keys have the following types: ",
+                "Those keys have the following types:",
+                "  - data (list; optional): data is a collection of traces",
+                "  - layout (dict; optional): layout describes the rest of the figure"  # noqa: E501
+
+            ])],
+
+            ['optionalObjectWithShapeAndNestedDescription', '\n'.join([
+
+                "dict containing keys 'color', 'fontSize', 'figure'.",
+                "Those keys have the following types:",
+                "  - color (string; optional)",
+                "  - fontSize (number; optional)",
+                "  - figure (optional): Figure is a plotly graph object. figure has the following type: dict containing keys 'data', 'layout'.",  # noqa: E501
+                "Those keys have the following types:",
                 "  - data (list; optional): data is a collection of traces",
                 "  - layout (dict; optional): layout describes the rest of the figure"  # noqa: E501
 
@@ -815,18 +844,16 @@ class TestMetaDataConversions(unittest.TestCase):
 
             ['in', 'string'],
 
-            ['id', 'string'],
-
-            ['dashEvents', "a value equal to: 'restyle', 'relayout', 'click'"]
+            ['id', 'string']
         ])
 
     def test_docstring(self):
         docstring = create_docstring(
             'Table',
             self.data['props'],
-            parse_events(self.data['props']),
             self.data['description'],
         )
+        prohibit_events(self.data['props']),
         assert_docstring(self.assertEqual, docstring)
 
     def test_docgen_to_python_args(self):
@@ -866,12 +893,12 @@ def assert_docstring(assertEqual, docstring):
             "- optionalObjectOf (dict with strings as keys and values "
             "of type number; optional)",
 
-            "- optionalObjectWithShapeAndNestedDescription (optional): . "
-            "optionalObjectWithShapeAndNestedDescription has the "
+            "- optionalObjectWithExactAndNestedDescription (optional): . "
+            "optionalObjectWithExactAndNestedDescription has the "
             "following type: dict containing keys "
             "'color', 'fontSize', 'figure'.",
 
-            "Those keys have the following types: ",
+            "Those keys have the following types:",
             "  - color (string; optional)",
             "  - fontSize (number; optional)",
 
@@ -879,7 +906,26 @@ def assert_docstring(assertEqual, docstring):
             "figure has the following type: dict containing "
             "keys 'data', 'layout'.",
 
-            "Those keys have the following types: ",
+            "Those keys have the following types:",
+            "  - data (list; optional): data is a collection of traces",
+
+            "  - layout (dict; optional): layout describes "
+            "the rest of the figure",
+
+            "- optionalObjectWithShapeAndNestedDescription (optional): . "
+            "optionalObjectWithShapeAndNestedDescription has the "
+            "following type: dict containing keys "
+            "'color', 'fontSize', 'figure'.",
+
+            "Those keys have the following types:",
+            "  - color (string; optional)",
+            "  - fontSize (number; optional)",
+
+            "  - figure (optional): Figure is a plotly graph object. "
+            "figure has the following type: dict containing "
+            "keys 'data', 'layout'.",
+
+            "Those keys have the following types:",
             "  - data (list; optional): data is a collection of traces",
 
             "  - layout (dict; optional): layout describes "
@@ -894,8 +940,6 @@ def assert_docstring(assertEqual, docstring):
             '- aria-* (string; optional)',
             '- in (string; optional)',
             '- id (string; optional)',
-            '',
-            "Available events: 'restyle', 'relayout', 'click'",
             '        '
             ])[i]
                    )
@@ -903,11 +947,11 @@ def assert_docstring(assertEqual, docstring):
 
 class TestFlowMetaDataConversions(unittest.TestCase):
     def setUp(self):
-        path = os.path.join('tests', 'development', 'flow_metadata_test.json')
+        path = os.path.join(_dir, 'flow_metadata_test.json')
         with open(path) as data_file:
             json_string = data_file.read()
             data = json\
-                .JSONDecoder(object_pairs_hook=collections.OrderedDict)\
+                .JSONDecoder(object_pairs_hook=OrderedDict)\
                 .decode(json_string)
             self.data = data
 
@@ -931,7 +975,7 @@ class TestFlowMetaDataConversions(unittest.TestCase):
             ['optionalSignature(shape)', '\n'.join([
 
                 "dict containing keys 'checked', 'children', 'customData', 'disabled', 'label', 'primaryText', 'secondaryText', 'style', 'value'.",
-                "Those keys have the following types: ",
+                "Those keys have the following types:",
                 "- checked (boolean; optional)",
                 "- children (a list of or a singular dash component, string or number; optional)",
                 "- customData (bool | number | str | dict | list; required): A test description",
@@ -947,9 +991,9 @@ class TestFlowMetaDataConversions(unittest.TestCase):
             ['requiredNested', '\n'.join([
 
                 "dict containing keys 'customData', 'value'.",
-                "Those keys have the following types: ",
+                "Those keys have the following types:",
                 "- customData (required): . customData has the following type: dict containing keys 'checked', 'children', 'customData', 'disabled', 'label', 'primaryText', 'secondaryText', 'style', 'value'.",
-                "  Those keys have the following types: ",
+                "  Those keys have the following types:",
                 "  - checked (boolean; optional)",
                 "  - children (a list of or a singular dash component, string or number; optional)",
                 "  - customData (bool | number | str | dict | list; required)",
@@ -968,9 +1012,9 @@ class TestFlowMetaDataConversions(unittest.TestCase):
         docstring = create_docstring(
             'Flow_component',
             self.data['props'],
-            parse_events(self.data['props']),
             self.data['description'],
         )
+        prohibit_events(self.data['props']),
         assert_flow_docstring(self.assertEqual, docstring)
 
     def test_docgen_to_python_args(self):
@@ -1010,7 +1054,7 @@ def assert_flow_docstring(assertEqual, docstring):
             "'children', 'customData', 'disabled', 'label', 'primaryText', 'secondaryText', "
             "'style', 'value'.",
 
-            "  Those keys have the following types: ",
+            "  Those keys have the following types:",
             "  - checked (boolean; optional)",
             "  - children (a list of or a singular dash component, string or number; optional)",
             "  - customData (bool | number | str | dict | list; required): A test description",
@@ -1024,13 +1068,13 @@ def assert_flow_docstring(assertEqual, docstring):
             "- requiredNested (required): . requiredNested has the following type: dict containing "
             "keys 'customData', 'value'.",
 
-            "  Those keys have the following types: ",
+            "  Those keys have the following types:",
 
             "  - customData (required): . customData has the following type: dict containing "
             "keys 'checked', 'children', 'customData', 'disabled', 'label', 'primaryText', "
             "'secondaryText', 'style', 'value'.",
 
-            "    Those keys have the following types: ",
+            "    Those keys have the following types:",
             "    - checked (boolean; optional)",
             "    - children (a list of or a singular dash component, string or number; optional)",
             "    - customData (bool | number | str | dict | list; required)",
@@ -1041,7 +1085,5 @@ def assert_flow_docstring(assertEqual, docstring):
             "    - style (dict; optional)",
             "    - value (bool | number | str | dict | list; required)",
             "  - value (bool | number | str | dict | list; required)",
-            "",
-            "Available events: "
         ])[i]
                    )

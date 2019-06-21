@@ -60,16 +60,23 @@ class Resources(object):
         return filtered_resources
 
     def get_all_resources(self, affix='', module_names=None, dev_bundles=False):
-        all_resources = ComponentRegistry.get_resources(self.resource_name, affix=affix, module_names=module_names)
-        all_resources.extend(self._resources)
+        lib_resources = ComponentRegistry.get_resources(self.resource_name, affix=affix, module_names=module_names)
+        all_resources = lib_resources + self._resources
 
         return self._filter_resources(all_resources, dev_bundles)
+
+
+# pylint: disable=too-few-public-methods
+class _Config(object):
+    def __init__(self, infer_from_layout, serve_locally):
+        self.infer_from_layout = infer_from_layout
+        self.serve_locally = serve_locally
 
 
 class Css(object):
     def __init__(self, layout=None):
         self._resources = Resources('_css_dist', layout)
-        self._resources.config = self.config
+        self._resources.config = self.config = _Config(True, True)
 
     def _update_layout(self, layout):
         self._resources.layout = layout
@@ -89,7 +96,7 @@ class Css(object):
 class Scripts(object):
     def __init__(self, layout=None):
         self._resources = Resources('_js_dist', layout)
-        self._resources.config = self.config
+        self._resources.config = self.config = _Config(True, True)
 
     def _update_layout(self, layout):
         self._resources.layout = layout
@@ -99,8 +106,3 @@ class Scripts(object):
 
     def get_all_scripts(self, affix='', module_names=None, dev_bundles=False):
         return self._resources.get_all_resources(affix=affix, module_names=module_names, dev_bundles=dev_bundles)
-
-    # pylint: disable=no-init, too-few-public-methods
-    class config(object):
-        infer_from_layout = True
-        serve_locally = False

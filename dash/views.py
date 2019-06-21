@@ -130,8 +130,9 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
         output = body['output']
         inputs = body.get('inputs', [])
         state = body.get('state', [])
+        changed_props = body.get('changedPropIds', [])
 
-        return self.dash.update_component(output, inputs, state)
+        return self.dash.update_component(output, inputs, state, changed_props)
 
     def _dash_component_suites(self, request, *args, **kwargs):  # pylint: disable=unused-argument
         ext = kwargs.get('path_in_package_dist', '').split('.')[-1]
@@ -151,6 +152,12 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
 
     def _dash_reload_hash(self, request, *args, **kwargs):  # pylint: disable=unused-argument
         return JsonResponse(self.dash.serve_reload_hash(*args, **kwargs))
+
+    def _dash_default_favicon(self, request, *args, **kwargs):  # pylint: disable=unused-argument
+        response = HttpResponse(self.dash.serve_default_favicon(*args, **kwargs), content_type='image/x-icon')
+        response['Cache-Control'] = 'public, max-age={}'.format(self.dash.config.components_cache_max_age)
+
+        return response
 
     @classmethod
     def serve_dash_index(cls, request, dash_name, *args, **kwargs):
@@ -190,3 +197,8 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
     def serve_reload_hash(cls, request, dash_name, *args, **kwargs):
         view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_reload-hash'))
         return view._dash_reload_hash(request, *args, **kwargs)   # pylint: disable=protected-access
+
+    @classmethod
+    def serve_default_favicon(cls, request, dash_name, *args, **kwargs):
+        view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_favicon.ico'))
+        return view._dash_default_favicon(request, *args, **kwargs)   # pylint: disable=protected-access

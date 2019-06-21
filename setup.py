@@ -5,7 +5,7 @@ main_ns = {}
 exec(open('dash/version.py').read(), main_ns)  # pylint: disable=exec-used
 
 general_requires = [
-    'Django>=1.9,<2.2',
+    'Django>=1.9,<2.3',
     'plotly>=2.0.8'
 ]
 
@@ -22,7 +22,7 @@ setup(
     long_description_content_type='text/markdown',
     install_requires=[],
     extras_require={
-        'all': general_requires + ['dash_renderer==0.19.0'],
+        'all': general_requires + ['dash_renderer==0.24.0'],
         'no-dash-renderer': general_requires
     },
     url='https://github.com/pikhovkin/dj-plotly-dash',
@@ -35,6 +35,7 @@ setup(
         'Framework :: Django :: 1.11',
         'Framework :: Django :: 2.0',
         'Framework :: Django :: 2.1',
+        'Framework :: Django :: 2.2',
         'Intended Audience :: Developers',
         'Intended Audience :: Education',
         'Intended Audience :: Financial and Insurance Industry',

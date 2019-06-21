@@ -16,7 +16,7 @@ class HttpResponseNoContent(HttpResponse):
 
 class CommonMiddleware(MiddlewareMixin):  # pylint: disable=too-few-public-methods
     def process_exception(self, request, exception):  # pylint: disable=unused-argument, no-self-use,
-        if isinstance(exception, exceptions.PreventUpdate):  # pylint: disable=no-else-return
+        if isinstance(exception, exceptions.PreventUpdate):
             return HttpResponseNoContent()
         elif isinstance(exception, exceptions.InvalidResourceError):
             return HttpResponseNotFound(exception.args[0])

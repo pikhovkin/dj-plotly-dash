@@ -1,6 +1,5 @@
-import dash_core_components as dcc
 import mock
-
+import dash_core_components as dcc
 from django.test import TestCase
 
 import dash

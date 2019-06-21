@@ -9,7 +9,7 @@ import dash_html_components as html
 import dash_flow_example
 import dash_dangerously_set_inner_html
 
-from dash import BaseDashView, Dash
+from dash import BaseDashView, Dash, no_update
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
@@ -112,6 +112,8 @@ class DashAbortedCallback(DashView):
     @classmethod  # As an opportunity
     def callback1(cls, value):
         cls.callback1_count.value = cls.callback1_count.value + 1
+        if cls.callback1_count.value > 2:
+            return no_update
         raise PreventUpdate('testing callback does not update')
         return value
 

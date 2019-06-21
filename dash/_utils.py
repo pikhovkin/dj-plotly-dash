@@ -1,4 +1,7 @@
 import uuid
+import collections
+
+import six
 
 
 def interpolate_str(template, **data):
@@ -43,6 +46,13 @@ def get_asset_path(
     ])
 
 
+# pylint: disable=no-member
+def patch_collections_abc(member):
+    if six.PY2:
+        return getattr(collections, member)
+    return getattr(collections.abc, member)
+
+
 class AttributeDict(dict):
     """
     Dictionary subclass enabling attribute lookup/assignment of keys/values.
@@ -78,3 +88,15 @@ class AttributeDict(dict):
             value = self.get(name)
             if value:
                 return value
+
+
+def create_callback_id(output):
+    if isinstance(output, (list, tuple)):
+        return '..{}..'.format('...'.join(
+            '{}.{}'.format(x.component_id, x.component_property)
+            for x in output
+        ))
+
+    return '{}.{}'.format(
+        output.component_id, output.component_property
+    )

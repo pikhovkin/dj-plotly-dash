@@ -1,26 +1,45 @@
-# pylint: disable=too-few-public-methods
-class Output(object):
+class DashDependency(object):
+    # pylint: disable=too-few-public-methods
     def __init__(self, component_id, component_property):
         self.component_id = component_id
         self.component_property = component_property
 
+    def __str__(self):
+        return '{}.{}'.format(
+            self.component_id,
+            self.component_property
+        )
 
-# pylint: disable=too-few-public-methods
-class Input(object):
-    def __init__(self, component_id, component_property):
-        self.component_id = component_id
-        self.component_property = component_property
+    def __repr__(self):
+        return '<{} `{}`>'.format(self.__class__.__name__, self)
+
+    def __eq__(self, other):
+        return isinstance(other, DashDependency) and str(self) == str(other)
+
+    def __hash__(self):
+        return hash(str(self))
 
 
-# pylint: disable=too-few-public-methods
-class State(object):
-    def __init__(self, component_id, component_property):
-        self.component_id = component_id
-        self.component_property = component_property
+class Output(DashDependency):  # pylint: disable=too-few-public-methods
+    """Output of a callback."""
 
 
-# pylint: disable=too-few-public-methods
-class Event(object):
-    def __init__(self, component_id, component_event):
-        self.component_id = component_id
-        self.component_event = component_event
+class Input(DashDependency):  # pylint: disable=too-few-public-methods
+    """Input of callback trigger an update when it is updated."""
+
+
+class State(DashDependency):  # pylint: disable=too-few-public-methods
+    """Use the value of a state in a callback but don't trigger updates."""
+
+
+class ClientsideFunction(object):
+    # pylint: disable=too-few-public-methods
+    def __init__(self, namespace=None, function_name=None):
+        self.namespace = namespace
+        self.function_name = function_name
+
+    def __repr__(self):
+        return 'ClientsideFunction({}, {})'.format(
+            self.namespace,
+            self.function_name
+        )

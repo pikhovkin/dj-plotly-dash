@@ -1,7 +1,11 @@
+import os
+import sys
 import time
 
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -13,29 +17,55 @@ from .utils import invincible, wait_for
 TIMEOUT = 20
 
 
+class SeleniumDriverTimeout(Exception):
+    pass
+
+
 class IntegrationTests(LiveServerTestCase):
-    def wait_for_element_by_id(self, id):
+    last_timestamp = 0
+
+    def wait_for_element_by_id(self, id, timeout=TIMEOUT):
         wait_for(lambda: None is not invincible(
             lambda: self.driver.find_element_by_id(id)
-        ), timeout=TIMEOUT)
+        ), timeout=timeout)
         return self.driver.find_element_by_id(id)
 
-    def wait_for_element_by_css_selector(self, selector):
-        return WebDriverWait(self.driver, TIMEOUT).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+    def wait_for_element_by_css_selector(self, selector, timeout=TIMEOUT):
+        return WebDriverWait(self.driver, timeout).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, selector)),
+            'Could not find element with selector "{}"'.format(selector)
         )
 
-    def wait_for_text_to_equal(self, selector, assertion_text):
-        return WebDriverWait(self.driver, TIMEOUT).until(
-            EC.text_to_be_present_in_element((By.CSS_SELECTOR, selector),
-                                             assertion_text)
+    def wait_for_text_to_equal(self, selector, assertion_text, timeout=TIMEOUT):
+        el = self.wait_for_element_by_css_selector(selector)
+        WebDriverWait(self.driver, timeout).until(
+            lambda *args: (
+                    (str(el.text) == assertion_text) or
+                    (str(el.get_attribute('value')) == assertion_text)
+            ),
+            "Element '{}' text was supposed to equal '{}' but it didn't".format(
+                selector,
+                assertion_text
+            )
         )
 
     @classmethod
     def setUpClass(cls):
         super(IntegrationTests, cls).setUpClass()
 
-        cls.driver = webdriver.Chrome()
+        options = Options()
+        options.add_argument('--no-sandbox')
+
+        capabilities = DesiredCapabilities.CHROME
+        capabilities['loggingPrefs'] = {'browser': 'SEVERE'}
+
+        if 'DASH_TEST_CHROMEPATH' in os.environ:
+            options.binary_location = os.environ['DASH_TEST_CHROMEPATH']
+
+        cls.driver = webdriver.Chrome(
+            chrome_options=options, desired_capabilities=capabilities,
+            service_args=["--verbose", "--log-path=chrome.log"]
+            )
 
     @classmethod
     def tearDownClass(cls):
@@ -44,35 +74,40 @@ class IntegrationTests(LiveServerTestCase):
         cls.driver.quit()
 
     def tearDown(self):
-        time.sleep(2)
+        self.clear_log()
+        time.sleep(1)
 
     def open(self, dash):
         # Visit the dash page
+        self.driver.implicitly_wait(2)
         self.driver.get('{}/{}'.format(self.live_server_url, dash))
         time.sleep(1)
 
-        # Inject an error and warning logger
-        logger = '''
-        window.tests = {};
-        window.tests.console = {error: [], warn: [], log: []};
+    def clear_log(self):
+        entries = self.driver.get_log("browser")
+        if entries:
+            self.last_timestamp = entries[-1]["timestamp"]
 
-        var _log = console.log;
-        var _warn = console.warn;
-        var _error = console.error;
+    def get_log(self):
+        entries = self.driver.get_log("browser")
+        return [
+            entry
+            for entry in entries
+            if entry["timestamp"] > self.last_timestamp
+        ]
 
-        console.log = function() {
-            window.tests.console.log.push({method: 'log', arguments: arguments});
-            return _log.apply(console, arguments);
-        };
+    def wait_until_get_log(self, timeout=10):
+        logs = None
+        cnt, poll = 0, 0.1
+        while not logs:
+            logs = self.get_log()
+            time.sleep(poll)
+            cnt += 1
+            if cnt * poll >= timeout * 1000:
+                raise SeleniumDriverTimeout(
+                    'cannot get log in {}'.format(timeout))
 
-        console.warn = function() {
-            window.tests.console.warn.push({method: 'warn', arguments: arguments});
-            return _warn.apply(console, arguments);
-        };
+        return logs
 
-        console.error = function() {
-            window.tests.console.error.push({method: 'error', arguments: arguments});
-            return _error.apply(console, arguments);
-        };
-        '''
-        self.driver.execute_script(logger)
+    def is_console_clean(self):
+        return not self.get_log()
