@@ -15,6 +15,7 @@ setup(
     author='Sergei Pikhovkin',
     author_email='s@pikhovkin.ru',
     packages=find_packages(exclude=['tests*']),
+    include_package_data=True,
     license='MIT',
     description=('A Python framework for building reactive web-apps. '
                  'Developed by Plotly.'),
@@ -22,7 +23,7 @@ setup(
     long_description_content_type='text/markdown',
     install_requires=[],
     extras_require={
-        'all': general_requires + ['dash_renderer==0.24.0'],
+        'all': general_requires + ['dash_renderer==1.0.0'],
         'no-dash-renderer': general_requires
     },
     url='https://github.com/pikhovkin/dj-plotly-dash',
@@ -43,7 +44,9 @@ setup(
         'Intended Audience :: Manufacturing',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',

@@ -75,28 +75,28 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
 
         setattr(self.dash, '_res_affix', '_{}'.format(id(self.__class__)))
 
-        if dash_base_url and self.dash.url_base_pathname != dash_base_url:
-            self.dash.url_base_pathname = dash_base_url  # pylint: disable=access-member-before-definition
+        if dash_base_url and self.dash.config.url_base_pathname != dash_base_url:
+            self.dash.config.url_base_pathname = dash_base_url  # pylint: disable=access-member-before-definition
             # pylint: disable=access-member-before-definition
             self.dash.config.requests_pathname_prefix = dash_base_url
 
-        if dash_meta_tags and self.dash._meta_tags != dash_meta_tags:  # pylint: disable=protected-access
+        if dash_meta_tags and self.dash.config.meta_tags != dash_meta_tags:  # pylint: disable=protected-access
             # pylint: disable=protected-access, access-member-before-definition
-            self.dash._meta_tags = dash_meta_tags
+            self.dash.config.meta_tags = dash_meta_tags
         # pylint: disable=protected-access
-        if dash_external_scripts and self.dash._external_scripts != dash_external_scripts:
+        if dash_external_scripts and self.dash.config.external_scripts != dash_external_scripts:
             # pylint: disable=protected-access, access-member-before-definition
-            self.dash._external_scripts = dash_external_scripts
+            self.dash.config.external_scripts = dash_external_scripts
         # pylint: disable=protected-access
-        if dash_external_stylesheets and self.dash._external_stylesheets != dash_external_stylesheets:
+        if dash_external_stylesheets and self.dash.config.external_stylesheets != dash_external_stylesheets:
             # pylint: disable=protected-access, access-member-before-definition
-            self.dash._external_stylesheets = dash_external_stylesheets
+            self.dash.config.external_stylesheets = dash_external_stylesheets
         # pylint: disable=protected-access
-        if dash_assets_folder and self.dash._assets_folder != dash_assets_folder:
+        if dash_assets_folder and self.dash.config.assets_folder != dash_assets_folder:
             # pylint: disable=protected-access, access-member-before-definition
-            self.dash._assets_folder = dash_assets_folder
-        if dash_assets_ignore and self.dash.assets_ignore != dash_assets_ignore:
-            self.dash.assets_ignore = dash_assets_ignore
+            self.dash.config.assets_folder = dash_assets_folder
+        if dash_assets_ignore and self.dash.config.assets_ignore != dash_assets_ignore:
+            self.dash.config.assets_ignore = dash_assets_ignore
         if dash_serve_dev_bundles and self.dash._dev_tools.serve_dev_bundles != dash_serve_dev_bundles:
             self.dash._dev_tools.serve_dev_bundles = dash_serve_dev_bundles
         if self.dash._dev_tools.hot_reload != dash_hot_reload:
@@ -143,7 +143,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
         }[ext]
 
         response = HttpResponse(self.dash.serve_component_suites(*args, **kwargs), content_type=mimetype)
-        response['Cache-Control'] = 'public, max-age={}'.format(self.dash.config.components_cache_max_age)
+        # response['Cache-Control'] = 'public, max-age={}'.format(self.dash.config.components_cache_max_age)
 
         return response
 
@@ -155,7 +155,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
 
     def _dash_default_favicon(self, request, *args, **kwargs):  # pylint: disable=unused-argument
         response = HttpResponse(self.dash.serve_default_favicon(*args, **kwargs), content_type='image/x-icon')
-        response['Cache-Control'] = 'public, max-age={}'.format(self.dash.config.components_cache_max_age)
+        # response['Cache-Control'] = 'public, max-age={}'.format(self.dash.config.components_cache_max_age)
 
         return response
 

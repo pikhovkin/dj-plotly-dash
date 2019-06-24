@@ -7,10 +7,9 @@ from . import exceptions
 
 
 class Resources(object):
-    def __init__(self, resource_name, layout):
+    def __init__(self, resource_name):
         self._resources = []
         self.resource_name = resource_name
-        self.layout = layout
 
     def append_resource(self, resource):
         self._resources.append(resource)
@@ -68,18 +67,14 @@ class Resources(object):
 
 # pylint: disable=too-few-public-methods
 class _Config(object):
-    def __init__(self, infer_from_layout, serve_locally):
-        self.infer_from_layout = infer_from_layout
+    def __init__(self, serve_locally):
         self.serve_locally = serve_locally
 
 
 class Css(object):
-    def __init__(self, layout=None):
-        self._resources = Resources('_css_dist', layout)
-        self._resources.config = self.config = _Config(True, True)
-
-    def _update_layout(self, layout):
-        self._resources.layout = layout
+    def __init__(self, serve_locally):
+        self._resources = Resources('_css_dist')
+        self._resources.config = self.config = _Config(serve_locally)
 
     def append_css(self, stylesheet):
         self._resources.append_resource(stylesheet)
@@ -87,19 +82,11 @@ class Css(object):
     def get_all_css(self, affix='', module_names=None):
         return self._resources.get_all_resources(affix=affix, module_names=module_names)
 
-    # pylint: disable=no-init, too-few-public-methods
-    class config(object):
-        infer_from_layout = True
-        serve_locally = False
-
 
 class Scripts(object):
-    def __init__(self, layout=None):
-        self._resources = Resources('_js_dist', layout)
-        self._resources.config = self.config = _Config(True, True)
-
-    def _update_layout(self, layout):
-        self._resources.layout = layout
+    def __init__(self, serve_locally):
+        self._resources = Resources('_js_dist')
+        self._resources.config = self.config = _Config(serve_locally)
 
     def append_script(self, script):
         self._resources.append_resource(script)
