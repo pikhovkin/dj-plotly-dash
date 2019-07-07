@@ -8,8 +8,11 @@ from django.views.generic import TemplateView
 from django.conf import settings
 from django.utils import six
 from django.core.exceptions import ImproperlyConfigured
+from django.http import JsonResponse as BaseJsonResponse
 
-from .dash import Dash, JsonResponse
+import plotly
+
+from .dash import Dash
 from ._utils import generate_hash
 
 
@@ -17,6 +20,13 @@ __all__ = (
     'MetaDashView',
     'BaseDashView'
 )
+
+
+class JsonResponse(BaseJsonResponse):
+    def __init__(self, data, encoder=plotly.utils.PlotlyJSONEncoder, safe=False,
+                 json_dumps_params=None, **kwargs):
+        super(JsonResponse, self).__init__(data, encoder=encoder, safe=safe,
+                                           json_dumps_params=json_dumps_params, **kwargs)
 
 
 class MetaDashView(type):
@@ -52,7 +62,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
     dash_external_stylesheets = None
     dash_assets_folder = None
     dash_assets_ignore = ''
-    dash_prefix = ''  # For additional special urls
+    dash_prefix = ''  # For additional special urls (for example, '_', '__' or other symbols)
     dash_serve_dev_bundles = False
     dash_components = None
     dash_hot_reload = None
@@ -132,12 +142,16 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
         state = body.get('state', [])
         changed_props = body.get('changedPropIds', [])
 
-        return self.dash.update_component(output, inputs, state, changed_props)
+        self.response = JsonResponse({})
+        self.response.content = JsonResponse(self.dash.update_component(output, inputs, state, changed_props)).content
+
+        return self.response
+        # return self.dash.update_component(output, inputs, state, changed_props)
 
     def _dash_component_suites(self, request, *args, **kwargs):  # pylint: disable=unused-argument
         ext = kwargs.get('path_in_package_dist', '').split('.')[-1]
         mimetype = {
-            'js': 'application/JavaScript',
+            'js': 'application/javascript',
             'css': 'text/css',
             'map': 'application/json',
         }[ext]

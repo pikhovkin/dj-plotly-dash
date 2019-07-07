@@ -10,7 +10,7 @@ import dash_flow_example
 import dash_dangerously_set_inner_html
 
 from dash import BaseDashView, no_update
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
 
@@ -334,3 +334,170 @@ class DashLateComponentRegister(DashView):
             raise PreventUpdate()
 
         return dcc.Input(id='inserted-input')
+
+
+class DashMultiOutput(DashView):
+    dash_name = 'dash14'
+    dash_components = {html.__name__}
+
+    def __init__(self, **kwargs):
+        super(DashMultiOutput, self).__init__(**kwargs)
+        self.dash.layout = html.Div([
+            html.Button('OUTPUT', id='output-btn'),
+
+            html.Table([
+                html.Thead([
+                    html.Tr([html.Th('Output 1'), html.Th('Output 2')])
+                ]),
+                html.Tbody([
+                    html.Tr([html.Td(id='output1'), html.Td(id='output2')]),
+                ])
+            ]),
+
+            html.Div(id='output3'),
+            html.Div(id='output4'),
+            html.Div(id='output5')
+        ])
+
+        self.dash.callback([Output('output1', 'children'), Output('output2', 'children')],
+                           [Input('output-btn', 'n_clicks')],
+                           [State('output-btn', 'n_clicks_timestamp')])(self.on_click)
+        self.dash.callback(Output('output3', 'children'),
+                           [Input('output-btn', 'n_clicks')])(self.dummy_callback)
+
+    def on_click(self, n_clicks, n_clicks_timestamp):
+        if n_clicks is None:
+            raise PreventUpdate
+
+        return n_clicks, n_clicks_timestamp
+
+    def dummy_callback(self, n_clicks):
+        """Dummy callback for DuplicateCallbackOutput test
+        """
+        if n_clicks is None:
+            raise PreventUpdate
+
+        return 'Output 3: {}'.format(n_clicks)
+
+    def on_click_duplicate(self, n_clicks):
+        if n_clicks is None:
+            raise PreventUpdate
+
+        return 'something else'
+
+    def on_click_duplicate_multi(self, n_clicks):
+        if n_clicks is None:
+            raise PreventUpdate
+
+        return 'something else'
+
+    def on_click_same_output(self, n_clicks):
+        return n_clicks
+
+    def overlapping_multi_output(self, n_clicks):
+        return n_clicks
+
+
+class DashMultiOutputNoUpdate(DashView):
+    dash_name = 'dash15'
+    dash_components = {html.__name__}
+
+    def __init__(self, **kwargs):
+        super(DashMultiOutputNoUpdate, self).__init__(**kwargs)
+
+        self.dash.layout = html.Div([
+            html.Button('B', 'btn'),
+            html.P('initial1', 'n1'),
+            html.P('initial2', 'n2'),
+            html.P('initial3', 'n3')
+        ])
+
+        self.dash.callback([Output('n1', 'children'), Output('n2', 'children'), Output('n3', 'children')],
+                           [Input('btn', 'n_clicks')])(self.show_clicks)
+
+    def show_clicks(self, n):
+        # partial or complete cancelation of updates via no_update
+        return [
+            no_update if n and n > 4 else n,
+            no_update if n and n > 2 else n,
+            no_update
+        ]
+
+
+class DashNoUpdateChains(DashView):
+    dash_name = 'dash16'
+    dash_components = {html.__name__, dcc.__name__}
+
+    def __init__(self, **kwargs):
+        super(DashNoUpdateChains, self).__init__(**kwargs)
+
+        self.dash.layout = html.Div([
+            dcc.Input(id='a_in', value='a'),
+            dcc.Input(id='b_in', value='b'),
+            html.P('', id='a_out'),
+            html.P('', id='a_out_short'),
+            html.P('', id='b_out'),
+            html.P('', id='ab_out')
+        ])
+
+        self.dash.callback([Output('a_out', 'children'), Output('a_out_short', 'children')],
+                           [Input('a_in', 'value')])(self.a_out)
+        self.dash.callback(Output('b_out', 'children'), [Input('b_in', 'value')])(self.b_out)
+
+        self.dash.callback(Output('ab_out', 'children'),
+                           [Input('a_out_short', 'children')],
+                           [State('b_out', 'children')])(self.ab_out)
+
+    def a_out(self, a):
+        return (a, a if len(a) < 3 else no_update)
+
+    def b_out(self, b):
+        return b
+
+    def ab_out(self, a, b):
+        return a + ' ' + b
+
+
+class DashWithCustomRenderer(DashView):
+    dash_name = 'dash17'
+    dash_components = {html.__name__, dcc.__name__}
+    template_name = 'dash_with_custom_renderer.html'
+
+    def __init__(self, **kwargs):
+        super(DashWithCustomRenderer, self).__init__(**kwargs)
+
+        self.dash.layout = html.Div([
+            dcc.Input(id='input', value='initial value'),
+            html.Div(
+                html.Div([
+                    html.Div(id='output-1'),
+                    html.Div(id='output-pre'),
+                    html.Div(id='output-post')
+                ])
+            )
+        ])
+
+        self.dash.callback(Output('output-1', 'children'), [Input('input', 'value')])(self.update_output)
+
+    def update_output(self, value):
+        return value
+
+
+class DashModifiedResponse(DashView):
+    dash_name = 'dash19'
+    dash_components = {html.__name__, dcc.__name__}
+
+    def __init__(self, **kwargs):
+        super(DashModifiedResponse, self).__init__(**kwargs)
+
+        self.dash.layout = html.Div([
+            dcc.Input(id='input', value='ab'),
+            html.Div(id='output')
+        ])
+
+        self.dash.callback(Output('output', 'children'),
+                           [Input('input', 'value')])(self.update_output)
+
+    def update_output(self, value):
+        self.response.set_cookie('dash_cookie', value + ' - cookie')
+        return value + ' - output'

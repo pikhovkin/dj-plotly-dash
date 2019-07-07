@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {{ metas }}
+    <title>{{ title }}</title>
+    {{ favicon }}
+    {{ css }}
+</head>
+<body>
+    <div>Testing custom DashRenderer</div>
+    {{ app_entry }}
+    <footer>
+        {{ config }}
+        {{ scripts }}
+        <script id="_dash-renderer" type="application/javascript">
+            console.log('firing up a custom renderer!')
+            const renderer = new DashRenderer({
+                request_pre: () => {
+                    var output = document.getElementById('output-pre')
+                    if(output) {
+                        output.innerHTML = 'request_pre!!!';
+                    }
+                },
+                request_post: () => {
+                    var output = document.getElementById('output-post')
+                    if(output) {
+                        output.innerHTML = 'request_post ran!';
+                    }
+                }
+            })
+        </script>
+    </footer>
+    <div>With request hooks</div>
+</body>
+</html>

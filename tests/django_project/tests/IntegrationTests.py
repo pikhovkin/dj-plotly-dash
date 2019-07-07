@@ -8,6 +8,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 
 from django.test import LiveServerTestCase
 
@@ -111,3 +113,27 @@ class IntegrationTests(LiveServerTestCase):
 
     def is_console_clean(self):
         return not self.get_log()
+
+    def find_element(self, selector):
+        """find_element returns the first found element by the css `selector`
+        shortcut to `driver.find_element_by_css_selector`
+        """
+        return self.driver.find_element_by_css_selector(selector)
+
+    def multiple_click(self, selector, clicks):
+        """multiple_click click the element with number of `clicks`
+        """
+        for _ in range(clicks):
+            self.find_element(selector).click()
+
+    def clear_input(self, elem):
+        """simulate key press to clear the input"""
+        (
+            ActionChains(self.driver)
+                .click(elem)
+                .send_keys(Keys.HOME)
+                .key_down(Keys.SHIFT)
+                .send_keys(Keys.END)
+                .key_up(Keys.SHIFT)
+                .send_keys(Keys.DELETE)
+        ).perform()

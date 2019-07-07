@@ -16,7 +16,6 @@ import dash_renderer
 
 from django.contrib.staticfiles.utils import get_files
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.http import JsonResponse as BaseJsonResponse
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.safestring import mark_safe
@@ -35,13 +34,6 @@ from .version import __version__
 __all__ = (
     'Dash',
 )
-
-
-class JsonResponse(BaseJsonResponse):
-    def __init__(self, data, encoder=plotly.utils.PlotlyJSONEncoder, safe=False,
-                 json_dumps_params=None, **kwargs):
-        super(JsonResponse, self).__init__(data, encoder=encoder, safe=safe,
-                                           json_dumps_params=json_dumps_params, **kwargs)
 
 
 _app_entry = '''
@@ -908,7 +900,8 @@ class Dash(object):
                     }
 
                 try:
-                    return JsonResponse(response)
+                    # return JsonResponse(response)
+                    return response
                 except TypeError:
                     self._validate_callback_output(output_value, output)
                     raise exceptions.InvalidCallbackReturnValue('''
