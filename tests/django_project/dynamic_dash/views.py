@@ -501,3 +501,22 @@ class DashModifiedResponse(DashView):
     def update_output(self, value):
         self.response.set_cookie('dash_cookie', value + ' - cookie')
         return value + ' - output'
+
+
+class DashOutputInputInvalidCallback(DashView):
+    dash_name = 'dash21'
+    dash_components = {html.__name__}
+
+    def __init__(self, **kwargs):
+        super(DashOutputInputInvalidCallback, self).__init__(**kwargs)
+
+        self.dash.layout = html.Div([
+            html.Div('child', id='input-output'),
+            html.Div(id='out')
+        ])
+
+    def failure(self, children):
+        pass
+
+    def failure2(self, children):
+        pass

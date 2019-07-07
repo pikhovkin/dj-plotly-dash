@@ -468,3 +468,20 @@ class DashModifiedResponse(DashView):
         return value + ' - output'
 
 
+class DashOutputInputInvalidCallback(DashView):
+    dash_name = 'static_dash21'
+    dash_components = {html.__name__}
+
+    dash = Dash()
+    dash.layout = html.Div([
+        html.Div('child', id='input-output'),
+        html.Div(id='out')
+    ])
+
+    @staticmethod
+    def failure(children):
+        pass
+
+    staticmethod
+    def failure2(children):
+        pass

@@ -369,63 +369,81 @@ class Tests(IntegrationTests):
 
         self.assertTrue(self.is_console_clean())
 
-    def _test_simple_callback(self):
+    def _output_input_invalid_callback(self, view_class):
+        view = view_class if getattr(view_class, 'dash', None) else view_class()
+
+        with self.assertRaises(exceptions.CallbackException) as err:
+            view.dash.callback(Output('input-output', 'children'),
+                               [Input('input-output', 'children')])(view.failure)
+
+        msg = 'Same output and input: input-output.children'
+        self.assertTrue(err.exception.args[0] == msg)
+
+        # Multi output version.
+        with self.assertRaises(exceptions.CallbackException) as err:
+            view.dash.callback([Output('out', 'children'), Output('input-output', 'children')],
+                               [Input('input-output', 'children')])(view.failure2)
+
+        msg = 'Same output and input: input-output.children'
+        self.assertTrue(err.exception.args[0] == msg)
+
+    def test_simple_callback(self):
         self._simple_callback(dynamic_views.DashSimpleCallback)
         self._simple_callback(static_views.DashSimpleCallback)
 
-    def _test_wildcard_callback(self):
+    def test_wildcard_callback(self):
         self._wildcard_callback(dynamic_views.DashWildcardCallback)
         self._wildcard_callback(static_views.DashWildcardCallback)
 
-    def _test_aborted_callback(self):
+    def test_aborted_callback(self):
         self._aborted_callback(dynamic_views.DashAbortedCallback)
         self._aborted_callback(static_views.DashAbortedCallback)
 
-    def _test_wildcard_data_attributes(self):
+    def test_wildcard_data_attributes(self):
         self._wildcard_data_attributes(dynamic_views.DashWildcardDataAttributes)
         self._wildcard_data_attributes(static_views.DashWildcardDataAttributes)
 
-    def _test_flow_component(self):
+    def test_flow_component(self):
         self._flow_component(dynamic_views.DashFlowComponent)
         self._flow_component(static_views.DashFlowComponent)
 
-    def _test_no_props_component(self):
+    def test_no_props_component(self):
         self._no_props_component(dynamic_views.DashNoPropsComponent)
         self._no_props_component(static_views.DashNoPropsComponent)
 
-    def _test_meta_tags(self):
+    def test_meta_tags(self):
         self._meta_tags(dynamic_views.DashMetaTags)
         self._meta_tags(static_views.DashMetaTags)
 
-    def _test_index_customization(self):
+    def test_index_customization(self):
         self._index_customization(dynamic_views.DashIndexCustomization)
         self._index_customization(static_views.DashIndexCustomization)
 
-    def _test_assets(self):
+    def test_assets(self):
         self._assets(dynamic_views.DashAssets)
         self._assets(static_views.DashAssets)
 
-    def _test_external_files_init(self):
+    def test_external_files_init(self):
         self._external_files_init(dynamic_views.DashExternalFilesInit)
         self._external_files_init(static_views.DashExternalFilesInit)
 
-    def _test_func_layout_accepted(self):
+    def test_func_layout_accepted(self):
         self._func_layout_accepted(dynamic_views.DashFuncLayoutAccepted)
         self._func_layout_accepted(static_views.DashFuncLayoutAccepted)
 
-    def _test_late_component_register(self):
+    def test_late_component_register(self):
         self._late_component_register(dynamic_views.DashLateComponentRegister)
         self._late_component_register(static_views.DashLateComponentRegister)
 
-    def _test_multi_output(self):
+    def test_multi_output(self):
         self._multi_output(dynamic_views.DashMultiOutput)
         self._multi_output(static_views.DashMultiOutput)
 
-    def _test_multi_output_no_update(self):
+    def test_multi_output_no_update(self):
         self._multi_output_no_update(dynamic_views.DashMultiOutputNoUpdate)
         self._multi_output_no_update(static_views.DashMultiOutputNoUpdate)
 
-    def _test_no_update_chains(self):
+    def test_no_update_chains(self):
         self._no_update_chains(dynamic_views.DashNoUpdateChains)
         self._no_update_chains(static_views.DashNoUpdateChains)
 
@@ -433,6 +451,10 @@ class Tests(IntegrationTests):
         self._with_custom_renderer(dynamic_views.DashWithCustomRenderer)
         self._with_custom_renderer(static_views.DashWithCustomRenderer)
 
-    def _test_modified_response(self):
+    def test_modified_response(self):
         self._modified_response(dynamic_views.DashModifiedResponse)
         # self._modified_response(static_views.DashModifiedResponse)
+
+    def test_output_input_invalid_callback(self):
+        self._output_input_invalid_callback(dynamic_views.DashOutputInputInvalidCallback)
+        self._output_input_invalid_callback(static_views.DashOutputInputInvalidCallback)
