@@ -520,3 +520,88 @@ class DashOutputInputInvalidCallback(DashView):
 
     def failure2(self, children):
         pass
+
+
+class DashCallbackDepTypes(DashView):
+    dash_name = 'dash22'
+    dash_components = {html.__name__}
+
+    def __init__(self, **kwargs):
+        super(DashCallbackDepTypes, self).__init__(**kwargs)
+
+        self.dash.layout = html.Div([
+            html.Div('child', id='in'),
+            html.Div('state', id='state'),
+            html.Div(id='out')
+        ])
+
+    def f(self, i):
+        return i
+
+    def f2(self, i):
+        return i
+
+    def f3(self, i):
+        return i
+
+    def f4(self, i):
+        return i
+
+
+class DashCallbackReturnValidation(DashView):
+    dash_name = 'dash23'
+    dash_components = {html.__name__}
+
+    def __init__(self, **kwargs):
+        super(DashCallbackReturnValidation, self).__init__(**kwargs)
+
+        self.dash.layout = html.Div([
+            html.Div(id='a'),
+            html.Div(id='b'),
+            html.Div(id='c'),
+            html.Div(id='d'),
+            html.Div(id='e'),
+            html.Div(id='f')
+        ])
+
+        self.dash.callback(Output('b', 'children'), [Input('a', 'children')])(self.single)
+        self.dash.callback([Output('c', 'children'), Output('d', 'children')],
+                           [Input('a', 'children')])(self.multi)
+        self.dash.callback([Output('e', 'children'), Output('f', 'children')],
+                           [Input('a', 'children')])(self.multi2)
+
+    def single(self, a):
+        return set([1])
+
+    def multi(self, a):
+        return [1, set([2])]
+
+    def multi2(self, a):
+        return ['abc']
+
+
+class DashCallbackContext(DashView):
+    dash_name = 'dash24'
+    dash_components = {html.__name__}
+
+    btns = ['btn-{}'.format(x) for x in range(1, 6)]
+
+    def __init__(self, **kwargs):
+        super(DashCallbackContext, self).__init__(**kwargs)
+
+        self.dash.layout = html.Div([
+            html.Div([html.Button(btn, id=btn) for btn in self.btns]),
+            html.Div(id='output'),
+        ])
+
+        self.dash.callback(Output('output', 'children'),
+                           [Input(x, 'n_clicks') for x in self.btns])(self.on_click)
+
+    def on_click(self, *args):
+        if not callback_context.triggered:
+            raise PreventUpdate
+
+        trigger = callback_context.triggered[0]
+        return 'Just clicked {} for the {} time!'.format(
+            trigger['prop_id'].split('.')[0], trigger['value']
+        )

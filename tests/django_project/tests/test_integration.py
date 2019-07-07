@@ -387,7 +387,49 @@ class Tests(IntegrationTests):
         msg = 'Same output and input: input-output.children'
         self.assertTrue(err.exception.args[0] == msg)
 
-    def test_simple_callback(self):
+    def _callback_dep_types(self, view_class):
+        view = view_class if getattr(view_class, 'dash', None) else view_class()
+
+        with self.assertRaises(exceptions.IncorrectTypeException, msg='extra output nesting'):
+            view.dash.callback([[Output('out', 'children')]],
+                               [Input('in', 'children')])(view.f)
+
+        with self.assertRaises(exceptions.IncorrectTypeException, msg='un-nested input'):
+            view.dash.callback(Output('out', 'children'),
+                               Input('in', 'children'))(view.f2)
+
+        with self.assertRaises(exceptions.IncorrectTypeException, msg='un-nested state'):
+            view.dash.callback(Output('out', 'children'),
+                               [Input('in', 'children')],
+                               State('state', 'children'))(view.f3)
+
+        # all OK with tuples
+        view.dash.callback((Output('out', 'children'),),
+                           (Input('in', 'children'),),
+                           (State('state', 'children'),))(view.f4)
+
+    def _callback_return_validation(self, view_class):
+        view = view_class if getattr(view_class, 'dash', None) else view_class()
+
+        with self.assertRaises(exceptions.InvalidCallbackReturnValue, msg='not serializable'):
+            view.single('aaa')
+
+        with self.assertRaises(exceptions.InvalidCallbackReturnValue, msg='nested non-serializable'):
+            view.multi('aaa')
+
+        with self.assertRaises(exceptions.InvalidCallbackReturnValue, msg='wrong-length list'):
+            view.multi2('aaa')
+
+    def _callback_context(self, view_class):
+        for i in range(1, 5):
+            for btn in view_class.btns:
+                self.find_element('#' + btn).click()
+                self.wait_for_text_to_equal(
+                    '#output',
+                    'Just clicked {} for the {} time!'.format(btn, i)
+                )
+
+    def _test_simple_callback(self):
         self._simple_callback(dynamic_views.DashSimpleCallback)
         self._simple_callback(static_views.DashSimpleCallback)
 
@@ -458,3 +500,20 @@ class Tests(IntegrationTests):
     def test_output_input_invalid_callback(self):
         self._output_input_invalid_callback(dynamic_views.DashOutputInputInvalidCallback)
         self._output_input_invalid_callback(static_views.DashOutputInputInvalidCallback)
+
+    def test_callback_dep_types(self):
+        self._callback_dep_types(dynamic_views.DashCallbackDepTypes)
+        self._callback_dep_types(static_views.DashCallbackDepTypes)
+
+    # def test_callback_return_validation(self):
+    #     self._callback_return_validation(dynamic_views.DashCallbackReturnValidation)
+    #     self._callback_return_validation(static_views.DashCallbackReturnValidation)
+    #
+    # def test_callback_context(self):
+    #     self._callback_context(dynamic_views.DashCallbackContext)
+    #     self._callback_context(static_views.DashCallbackContext)
+
+    # def test_no_callback_context(self):
+    #     for attr in ['inputs', 'states', 'triggered', 'response']:
+    #         with self.assertRaises(exceptions.MissingCallbackContextException):
+    #             getattr(callback_context, attr)

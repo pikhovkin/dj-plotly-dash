@@ -482,6 +482,91 @@ class DashOutputInputInvalidCallback(DashView):
     def failure(children):
         pass
 
-    staticmethod
+    @staticmethod
     def failure2(children):
         pass
+
+
+class DashCallbackDepTypes(DashView):
+    dash_name = 'static_dash22'
+    dash_components = {html.__name__}
+
+    dash = Dash()
+    dash.layout = html.Div([
+        html.Div('child', id='in'),
+        html.Div('state', id='state'),
+        html.Div(id='out')
+    ])
+
+    @staticmethod
+    def f(i):
+        return i
+
+    @staticmethod
+    def f2(i):
+        return i
+
+    @staticmethod
+    def f3(i):
+        return i
+
+    @staticmethod
+    def f4(i):
+        return i
+
+
+class DashCallbackReturnValidation(DashView):
+    dash_name = 'static_dash23'
+    dash_components = {html.__name__}
+
+    dash = Dash()
+    dash.layout = html.Div([
+        html.Div(id='a'),
+        html.Div(id='b'),
+        html.Div(id='c'),
+        html.Div(id='d'),
+        html.Div(id='e'),
+        html.Div(id='f')
+    ])
+
+    @staticmethod
+    @dash.callback(Output('b', 'children'), [Input('a', 'children')])
+    def single(a):
+        return {[1]}
+
+    @staticmethod
+    @dash.callback([Output('c', 'children'), Output('d', 'children')],
+                   [Input('a', 'children')])
+    def multi(a):
+        return [1, {[2]}]
+
+    @staticmethod
+    @dash.callback([Output('e', 'children'), Output('f', 'children')],
+                   [Input('a', 'children')])
+    def multi2(a):
+        return ['abc']
+
+
+class DashCallbackContext(DashView):
+    dash_name = 'static_dash24'
+    dash_components = {html.__name__}
+
+    btns = ['btn-{}'.format(x) for x in range(1, 6)]
+
+    dash = Dash()
+    dash.layout = html.Div([
+        html.Div([html.Button(btn, id=btn) for btn in btns]),
+        html.Div(id='output'),
+    ])
+
+    @staticmethod
+    @dash.callback(Output('output', 'children'),
+                   [Input(x, 'n_clicks') for x in btns])
+    def on_click(*args):
+        if not callback_context.triggered:
+            raise PreventUpdate
+
+        trigger = callback_context.triggered[0]
+        return 'Just clicked {} for the {} time!'.format(
+            trigger['prop_id'].split('.')[0], trigger['value']
+        )

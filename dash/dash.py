@@ -901,7 +901,7 @@ class Dash(object):
 
                 try:
                     # return JsonResponse(response)
-                    return response
+                    return output_value, response
                 except TypeError:
                     self._validate_callback_output(output_value, output)
                     raise exceptions.InvalidCallbackReturnValue('''

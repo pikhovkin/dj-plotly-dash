@@ -14,6 +14,7 @@ import plotly
 
 from .dash import Dash
 from ._utils import generate_hash
+from . import exceptions
 
 
 __all__ = (
@@ -143,7 +144,23 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
         changed_props = body.get('changedPropIds', [])
 
         self.response = JsonResponse({})
-        self.response.content = JsonResponse(self.dash.update_component(output, inputs, state, changed_props)).content
+        output_value, response = self.dash.update_component(output, inputs, state, changed_props)
+        try:
+            self.response.content = JsonResponse(response).content
+        except TypeError:
+            self.dash._validate_callback_output(output_value, output)
+            raise exceptions.InvalidCallbackReturnValue('''
+            The callback for property `{property:s}`
+            of component `{id:s}` returned a value
+            which is not JSON serializable.
+
+            In general, Dash properties can only be
+            dash components, strings, dictionaries, numbers, None,
+            or lists of those.
+            '''.format(
+                property=output.component_property,
+                id=output.component_id
+            ).replace('    ', ''))
 
         return self.response
         # return self.dash.update_component(output, inputs, state, changed_props)
