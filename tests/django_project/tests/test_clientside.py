@@ -309,23 +309,29 @@ class Tests(IntegrationTests):
             ['#output-4', '15']
         ]:
             self.wait_for_text_to_equal(test_case[0], test_case[1])
-    #
-    # def test_clientside_fails_when_returning_a_promise(self):
-    #     app = dash.Dash(__name__, assets_folder='clientside_assets')
-    #
-    #     app.layout = html.Div([
-    #         html.Div(id='input', children='hello'),
-    #         html.Div(id='side-effect'),
-    #         html.Div(id='output', children='output')
-    #     ])
-    #
-    #     app.clientside_callback(
-    #         ClientsideFunction('clientside', 'side_effect_and_return_a_promise'),
-    #         Output('output', 'children'),
-    #         [Input('input', 'children')])
-    #
-    #     self.startServer(app)
-    #
-    #     self.wait_for_text_to_equal('#input', 'hello')
-    #     self.wait_for_text_to_equal('#side-effect', 'side effect')
-    #     self.wait_for_text_to_equal('#output', 'output')
+
+    def test_clientside_fails_when_returning_a_promise(self):
+        class DashClientsideFailsWhenReturningAPromise(DashView):
+            dash_name = 'clientside_fails_when_returning_a_promise'
+            dash_assets_folder = 'dynamic_dash/clientside_assets'
+            dash_components = {dcc.__name__, html.__name__}
+
+            def __init__(self, **kwargs):
+                super(DashClientsideFailsWhenReturningAPromise, self).__init__(**kwargs)
+
+                self.dash.layout = html.Div([
+                    html.Div(id='input', children='hello'),
+                    html.Div(id='side-effect'),
+                    html.Div(id='output', children='output')
+                ])
+
+                self.dash.clientside_callback(
+                    ClientsideFunction('clientside', 'side_effect_and_return_a_promise'),
+                    Output('output', 'children'),
+                    [Input('input', 'children')])
+
+        self.open('dash/{}/'.format(DashClientsideFailsWhenReturningAPromise.dash_name))
+
+        self.wait_for_text_to_equal('#input', 'hello')
+        self.wait_for_text_to_equal('#side-effect', 'side effect')
+        self.wait_for_text_to_equal('#output', 'output')
