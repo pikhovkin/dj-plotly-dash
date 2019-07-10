@@ -5,8 +5,6 @@ from dash.dependencies import Input, Output, State, ClientsideFunction
 import dash_html_components as html
 import dash_core_components as dcc
 
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -15,7 +13,6 @@ from .IntegrationTests import IntegrationTests
 from multiprocessing import Value
 import time
 
-from ..dynamic_dash import views
 
 TIMEOUT = 20
 
