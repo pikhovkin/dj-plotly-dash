@@ -202,103 +202,113 @@ class Tests(IntegrationTests):
         self.assertEqual(DashChainedServersideClientsideCallback.call_counts['display'].value, 2)
         self.assertEqual(DashChainedServersideClientsideCallback.call_counts['divide'].value, 2)
 
-    # def test_clientside_exceptions_halt_subsequent_updates(self):
-    #     app = dash.Dash(__name__, assets_folder='clientside_assets')
-    #
-    #     app.layout = html.Div([
-    #         dcc.Input(id='first', value=1),
-    #         dcc.Input(id='second'),
-    #         dcc.Input(id='third'),
-    #     ])
-    #
-    #     app.clientside_callback(
-    #         ClientsideFunction('clientside', 'add1_break_at_11'),
-    #         Output('second', 'value'),
-    #         [Input('first', 'value')],
-    #     )
-    #
-    #     app.clientside_callback(
-    #         ClientsideFunction('clientside', 'add1_break_at_11'),
-    #         Output('third', 'value'),
-    #         [Input('second', 'value')],
-    #     )
-    #
-    #     self.startServer(app)
-    #
-    #     test_cases = [
-    #         ['#first', '1'],
-    #         ['#second', '2'],
-    #         ['#third', '3'],
-    #     ]
-    #     for test_case in test_cases:
-    #         self.wait_for_text_to_equal(test_case[0], test_case[1])
-    #
-    #     first_input = WebDriverWait(self.driver, 10).until(
-    #         EC.presence_of_element_located((By.ID, 'first'))
-    #     )
-    #     first_input.send_keys('1')
-    #     # clientside code will prevent the update from occurring
-    #     test_cases = [
-    #         ['#first', '11'],
-    #         ['#second', '2'],
-    #         ['#third', '3']
-    #     ]
-    #     for test_case in test_cases:
-    #         self.wait_for_text_to_equal(test_case[0], test_case[1])
-    #
-    #     first_input.send_keys('1')
-    #
-    #     # the previous clientside code error should not be fatal:
-    #     # subsequent updates should still be able to occur
-    #     test_cases = [
-    #         ['#first', '111'],
-    #         ['#second', '112'],
-    #         ['#third', '113']
-    #     ]
-    #     for test_case in test_cases:
-    #         self.wait_for_text_to_equal(test_case[0], test_case[1])
-    #
-    # def test_clientside_multiple_outputs(self):
-    #     app = dash.Dash(__name__, assets_folder='clientside_assets')
-    #
-    #     app.layout = html.Div([
-    #         dcc.Input(id='input', value=1),
-    #         dcc.Input(id='output-1'),
-    #         dcc.Input(id='output-2'),
-    #         dcc.Input(id='output-3'),
-    #         dcc.Input(id='output-4'),
-    #     ])
-    #
-    #     app.clientside_callback(
-    #         ClientsideFunction('clientside', 'add_to_four_outputs'),
-    #         [Output('output-1', 'value'),
-    #          Output('output-2', 'value'),
-    #          Output('output-3', 'value'),
-    #          Output('output-4', 'value')],
-    #         [Input('input', 'value')])
-    #
-    #     self.startServer(app)
-    #
-    #     for test_case in [
-    #         ['#input', '1'],
-    #         ['#output-1', '2'],
-    #         ['#output-2', '3'],
-    #         ['#output-3', '4'],
-    #         ['#output-4', '5']
-    #     ]:
-    #         self.wait_for_text_to_equal(test_case[0], test_case[1])
-    #
-    #     input = self.wait_for_element_by_css_selector('#input')
-    #     input.send_keys('1')
-    #
-    #     for test_case in [
-    #         ['#input', '11'],
-    #         ['#output-1', '12'],
-    #         ['#output-2', '13'],
-    #         ['#output-3', '14'],
-    #         ['#output-4', '15']
-    #     ]:
-    #         self.wait_for_text_to_equal(test_case[0], test_case[1])
+    def test_clientside_exceptions_halt_subsequent_updates(self):
+        class DashClientsideExceptionsHaltSubsequentUpdates(DashView):
+            dash_name = 'clientside_exceptions_halt_subsequent_updates'
+            dash_assets_folder = 'dynamic_dash/clientside_assets'
+            dash_components = {dcc.__name__, html.__name__}
+
+            def __init__(self, **kwargs):
+                super(DashClientsideExceptionsHaltSubsequentUpdates, self).__init__(**kwargs)
+
+                self.dash.layout = html.Div([
+                    dcc.Input(id='first', value=1),
+                    dcc.Input(id='second'),
+                    dcc.Input(id='third'),
+                ])
+                self.dash.clientside_callback(
+                    ClientsideFunction('clientside', 'add1_break_at_11'),
+                    Output('second', 'value'),
+                    [Input('first', 'value')],
+                )
+                self.dash.clientside_callback(
+                    ClientsideFunction('clientside', 'add1_break_at_11'),
+                    Output('third', 'value'),
+                    [Input('second', 'value')],
+                )
+
+        self.open('dash/{}/'.format(DashClientsideExceptionsHaltSubsequentUpdates.dash_name))
+
+        test_cases = [
+            ['#first', '1'],
+            ['#second', '2'],
+            ['#third', '3'],
+        ]
+        for test_case in test_cases:
+            self.wait_for_text_to_equal(test_case[0], test_case[1])
+
+        first_input = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.ID, 'first'))
+        )
+        first_input.send_keys('1')
+        # clientside code will prevent the update from occurring
+        test_cases = [
+            ['#first', '11'],
+            ['#second', '2'],
+            ['#third', '3']
+        ]
+        for test_case in test_cases:
+            self.wait_for_text_to_equal(test_case[0], test_case[1])
+
+        first_input.send_keys('1')
+
+        # the previous clientside code error should not be fatal:
+        # subsequent updates should still be able to occur
+        test_cases = [
+            ['#first', '111'],
+            ['#second', '112'],
+            ['#third', '113']
+        ]
+        for test_case in test_cases:
+            self.wait_for_text_to_equal(test_case[0], test_case[1])
+
+    def test_clientside_multiple_outputs(self):
+        class DashClientsideMultipleOutputs(DashView):
+            dash_name = 'clientside_multiple_outputs'
+            dash_assets_folder = 'dynamic_dash/clientside_assets'
+            dash_components = {dcc.__name__, html.__name__}
+
+            def __init__(self, **kwargs):
+                super(DashClientsideMultipleOutputs, self).__init__(**kwargs)
+
+                self.dash.layout = html.Div([
+                    dcc.Input(id='input', value=1),
+                    dcc.Input(id='output-1'),
+                    dcc.Input(id='output-2'),
+                    dcc.Input(id='output-3'),
+                    dcc.Input(id='output-4'),
+                ])
+
+                self.dash.clientside_callback(
+                    ClientsideFunction('clientside', 'add_to_four_outputs'),
+                    [Output('output-1', 'value'),
+                     Output('output-2', 'value'),
+                     Output('output-3', 'value'),
+                     Output('output-4', 'value')],
+                    [Input('input', 'value')])
+
+        self.open('dash/{}/'.format(DashClientsideMultipleOutputs.dash_name))
+
+        for test_case in [
+            ['#input', '1'],
+            ['#output-1', '2'],
+            ['#output-2', '3'],
+            ['#output-3', '4'],
+            ['#output-4', '5']
+        ]:
+            self.wait_for_text_to_equal(test_case[0], test_case[1])
+
+        input = self.wait_for_element_by_css_selector('#input')
+        input.send_keys('1')
+
+        for test_case in [
+            ['#input', '11'],
+            ['#output-1', '12'],
+            ['#output-2', '13'],
+            ['#output-3', '14'],
+            ['#output-4', '15']
+        ]:
+            self.wait_for_text_to_equal(test_case[0], test_case[1])
     #
     # def test_clientside_fails_when_returning_a_promise(self):
     #     app = dash.Dash(__name__, assets_folder='clientside_assets')
