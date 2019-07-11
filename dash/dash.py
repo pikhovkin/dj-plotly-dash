@@ -899,23 +899,7 @@ class Dash(object):
                         }
                     }
 
-                try:
-                    # return JsonResponse(response)
-                    return output_value, response
-                except TypeError:
-                    self._validate_callback_output(output_value, output)
-                    raise exceptions.InvalidCallbackReturnValue('''
-                    The callback for property `{property:s}`
-                    of component `{id:s}` returned a value
-                    which is not JSON serializable.
-
-                    In general, Dash properties can only be
-                    dash components, strings, dictionaries, numbers, None,
-                    or lists of those.
-                    '''.format(
-                        property=output.component_property,
-                        id=output.component_id
-                    ).replace('    ', ''))
+                return output_value, response
 
             self.callback_map[callback_id]['callback'] = add_context
 

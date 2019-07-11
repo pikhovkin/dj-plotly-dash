@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
+from multiprocessing import Value
+import time
 
-import dash
-from dash.dependencies import Input, Output, State, ClientsideFunction
 import dash_html_components as html
 import dash_core_components as dcc
 
@@ -9,9 +9,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+import dash
+from dash.dependencies import Input, Output, ClientsideFunction
+
 from .IntegrationTests import IntegrationTests
-from multiprocessing import Value
-import time
 
 
 TIMEOUT = 20

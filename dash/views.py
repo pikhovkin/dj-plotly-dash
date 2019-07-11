@@ -143,12 +143,12 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
         state = body.get('state', [])
         changed_props = body.get('changedPropIds', [])
 
-        self.response = JsonResponse({})
+        self.response = JsonResponse({})  # pylint: disable=attribute-defined-outside-init
         output_value, response = self.dash.update_component(output, inputs, state, changed_props)
         try:
             self.response.content = JsonResponse(response).content
         except TypeError:
-            self.dash._validate_callback_output(output_value, output)
+            self.dash._validate_callback_output(output_value, output)  # pylint: disable=protected-access
             raise exceptions.InvalidCallbackReturnValue('''
             The callback for property `{property:s}`
             of component `{id:s}` returned a value
@@ -163,7 +163,6 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
             ).replace('    ', ''))
 
         return self.response
-        # return self.dash.update_component(output, inputs, state, changed_props)
 
     def _dash_component_suites(self, request, *args, **kwargs):  # pylint: disable=unused-argument
         ext = kwargs.get('path_in_package_dist', '').split('.')[-1]
