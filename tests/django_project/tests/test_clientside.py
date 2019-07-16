@@ -12,10 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import dash
 from dash.dependencies import Input, Output, ClientsideFunction
 
-from .IntegrationTests import IntegrationTests
-
-
-TIMEOUT = 20
+from .IntegrationTests import IntegrationTests, TIMEOUT
 
 
 class DashView(dash.BaseDashView):
@@ -32,9 +29,6 @@ class DashView(dash.BaseDashView):
 
 
 class Tests(IntegrationTests):
-    def setUp(self):
-        pass
-
     def wait_for_style_to_equal(self, selector, style, assertion_style, timeout=TIMEOUT):
         start = time.time()
         exception = Exception('Time ran out, {} on {} not found'.format(
