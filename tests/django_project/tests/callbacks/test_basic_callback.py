@@ -1,6 +1,5 @@
 from multiprocessing import Value
 
-from bs4 import BeautifulSoup
 import dash_core_components as dcc
 import dash_html_components as html
 
@@ -24,32 +23,6 @@ class DashView(dash.BaseDashView):
 
 
 class Tests(IntegrationTests):
-    @property
-    def redux_state_rqs(self):
-        return self.driver.execute_script(
-            "return window.store.getState().requestQueue"
-        )
-
-    @property
-    def redux_state_paths(self):
-        return self.driver.execute_script(
-            "return window.store.getState().paths"
-        )
-
-    @property
-    def dash_entry_locator(self):
-        return "#react-entry-point"
-
-    def _get_dash_dom_by_attribute(self, attr):
-        return BeautifulSoup(
-            self.find_element(self.dash_entry_locator).get_attribute(attr),
-            "html",
-        )
-
-    @property
-    def dash_innerhtml_dom(self):
-        return self._get_dash_dom_by_attribute("innerHTML")
-
     def test_simple_callback(self):
         class DashCallbacksSimpleCallback(DashView):
             dash_name = 'callbacks_simple_callback'

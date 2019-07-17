@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 import warnings
 
@@ -11,6 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+from bs4 import BeautifulSoup
 
 from django.test import LiveServerTestCase
 
@@ -153,3 +153,29 @@ class IntegrationTests(LiveServerTestCase):
                 .key_up(Keys.SHIFT)
                 .send_keys(Keys.DELETE)
         ).perform()
+
+    @property
+    def redux_state_rqs(self):
+        return self.driver.execute_script(
+            "return window.store.getState().requestQueue"
+        )
+
+    @property
+    def redux_state_paths(self):
+        return self.driver.execute_script(
+            "return window.store.getState().paths"
+        )
+
+    @property
+    def dash_entry_locator(self):
+        return "#react-entry-point"
+
+    def _get_dash_dom_by_attribute(self, attr):
+        return BeautifulSoup(
+            self.find_element(self.dash_entry_locator).get_attribute(attr),
+            "html",
+        )
+
+    @property
+    def dash_innerhtml_dom(self):
+        return self._get_dash_dom_by_attribute("innerHTML")
