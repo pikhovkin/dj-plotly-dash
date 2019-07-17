@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import warnings
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -97,6 +98,21 @@ class IntegrationTests(LiveServerTestCase):
             for entry in entries
             if entry["timestamp"] > self.last_timestamp
         ]
+
+    def get_logs(self):
+        """return a list of `SEVERE` level logs after last reset time stamps
+        (default to 0, resettable by `reset_log_timestamp`. Chrome only
+        """
+        if self.driver.name.lower() == "chrome":
+            return [
+                entry
+                for entry in self.driver.get_log("browser")
+                if entry["timestamp"] > self._last_ts
+            ]
+        warnings.warn(
+            "get_logs always return None with webdrivers other than Chrome"
+        )
+        return None
 
     def wait_until_get_log(self, timeout=10):
         logs = None
