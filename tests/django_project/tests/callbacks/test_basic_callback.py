@@ -43,7 +43,7 @@ class Tests(IntegrationTests):
     def _get_dash_dom_by_attribute(self, attr):
         return BeautifulSoup(
             self.find_element(self.dash_entry_locator).get_attribute(attr),
-            "lxml",
+            "html",
         )
 
     @property
