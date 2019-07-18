@@ -179,3 +179,9 @@ class IntegrationTests(LiveServerTestCase):
     @property
     def dash_innerhtml_dom(self):
         return self._get_dash_dom_by_attribute("innerHTML")
+
+    def find_elements(self, selector):
+        """find_elements returns a list of all elements matching the css
+        `selector`. shortcut to `driver.find_elements_by_css_selector`
+        """
+        return self.driver.find_elements_by_css_selector(selector)
