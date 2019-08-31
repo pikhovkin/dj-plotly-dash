@@ -1,7 +1,7 @@
 ;dash_core_components==1.0.0
 ;dash_html_components==1.0.0
 ;dash_renderer==1.0.0
-;Django>=1.9,<2.2
+;Django>=1.9,<2.3
 ;dash_flow_example==0.0.5
 ;dash-dangerously-set-inner-html
 selenium>=3.14.1
