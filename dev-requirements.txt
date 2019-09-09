@@ -1,6 +1,6 @@
-;dash_core_components==1.0.0
-;dash_html_components==1.0.0
-;dash_renderer==1.0.0
+;dash_core_components==1.1.2
+;dash_html_components==1.0.1
+;dash_renderer==1.0.1
 ;Django>=1.9,<2.3
 ;dash_flow_example==0.0.5
 ;dash-dangerously-set-inner-html
@@ -13,3 +13,6 @@ pylint==1.9.4;python_version<"3.7"
 pylint==2.3.1;python_version=="3.7"
 astroid==2.2.5;python_version=="3.7"
 mock
+fire
+coloredlogs
+PyYAML>=5.1.1

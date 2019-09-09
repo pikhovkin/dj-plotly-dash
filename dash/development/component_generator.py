@@ -11,6 +11,7 @@ import shutil
 import functools
 
 import pkg_resources
+import yaml
 
 from ._r_components_generation import write_class_file
 from ._r_components_generation import generate_exports
@@ -20,44 +21,43 @@ from ._py_components_generation import generate_classes_files
 
 
 reserved_words = [
-    'UNDEFINED',
-    'REQUIRED',
-    'to_plotly_json',
-    'available_properties',
-    'available_wildcard_properties',
-    '_.*'
+    "UNDEFINED",
+    "REQUIRED",
+    "to_plotly_json",
+    "available_properties",
+    "available_wildcard_properties",
+    "_.*",
 ]
 
 
 class _CombinedFormatter(
-        argparse.ArgumentDefaultsHelpFormatter,
-        argparse.RawDescriptionHelpFormatter
+    argparse.ArgumentDefaultsHelpFormatter,
+    argparse.RawDescriptionHelpFormatter,
 ):
     pass
 
 
 # pylint: disable=too-many-locals, too-many-arguments
 def generate_components(
-        components_source,
-        project_shortname,
-        package_info_filename="package.json",
-        ignore="^_",
-        rprefix=None,
-        rdepends="",
-        rimports="",
-        rsuggests=""
+    components_source,
+    project_shortname,
+    package_info_filename="package.json",
+    ignore="^_",
+    rprefix=None,
+    rdepends="",
+    rimports="",
+    rsuggests="",
 ):
 
     project_shortname = project_shortname.replace("-", "_").rstrip("/\\")
 
-    if rprefix is not None:
-        prefix = rprefix
-
     is_windows = sys.platform == "win32"
+
+    yamldata = None
 
     extract_path = pkg_resources.resource_filename("dash", "extract-meta.js")
 
-    reserved_patterns = '|'.join('^{}$'.format(p) for p in reserved_words)
+    reserved_patterns = "|".join("^{}$".format(p) for p in reserved_words)
 
     os.environ["NODE_PATH"] = "node_modules"
     cmd = shlex.split(
@@ -89,52 +89,56 @@ def generate_components(
         )
         sys.exit(1)
 
-    jsondata_unicode = json.loads(out.decode(), object_pairs_hook=OrderedDict)
-
-    if sys.version_info[0] >= 3:
-        metadata = jsondata_unicode
-    else:
-        metadata = byteify(jsondata_unicode)
+    metadata = safe_json_loads(out.decode("utf-8"))
 
     generator_methods = [generate_class_file]
 
     if rprefix is not None:
-        if not os.path.exists('man'):
-            os.makedirs('man')
-        if not os.path.exists('R'):
-            os.makedirs('R')
+        if not os.path.exists("man"):
+            os.makedirs("man")
+        if not os.path.exists("R"):
+            os.makedirs("R")
+        if os.path.isfile("dash-info.yaml"):
+            with open("dash-info.yaml") as yamldata:
+                rpkg_data = yaml.safe_load(yamldata)
+        else:
+            rpkg_data = None
+        with open("package.json", "r") as f:
+            pkg_data = safe_json_loads(f.read())
         generator_methods.append(
-            functools.partial(write_class_file, prefix=prefix))
+            functools.partial(
+                write_class_file, prefix=rprefix, rpkg_data=rpkg_data
+            )
+        )
 
     components = generate_classes_files(
-        project_shortname,
-        metadata,
-        *generator_methods
+        project_shortname, metadata, *generator_methods
     )
 
-    with open(os.path.join(project_shortname, 'metadata.json'), 'w') as f:
+    with open(os.path.join(project_shortname, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)
 
     generate_imports(project_shortname, components)
 
     if rprefix is not None:
-        with open('package.json', 'r') as f:
-            jsondata_unicode = json.load(f, object_pairs_hook=OrderedDict)
-            if sys.version_info[0] >= 3:
-                pkg_data = jsondata_unicode
-            else:
-                pkg_data = byteify(jsondata_unicode)
-
         generate_exports(
             project_shortname,
             components,
             metadata,
             pkg_data,
-            prefix,
+            rpkg_data,
+            rprefix,
             rdepends,
             rimports,
             rsuggests,
         )
+
+
+def safe_json_loads(s):
+    jsondata_unicode = json.loads(s, object_pairs_hook=OrderedDict)
+    if sys.version_info[0] >= 3:
+        return jsondata_unicode
+    return byteify(jsondata_unicode)
 
 
 def cli():
@@ -144,11 +148,12 @@ def cli():
         description="Generate dash components by extracting the metadata "
         "using react-docgen. Then map the metadata to python classes.",
     )
-    parser.add_argument("components_source",
-                        help="React components source directory.")
+    parser.add_argument(
+        "components_source", help="React components source directory."
+    )
     parser.add_argument(
         "project_shortname",
-        help="Name of the project to export the classes files."
+        help="Name of the project to export the classes files.",
     )
     parser.add_argument(
         "-p",
@@ -204,8 +209,10 @@ def cli():
 def byteify(input_object):
     if isinstance(input_object, dict):
         return OrderedDict(
-            [(byteify(key), byteify(value)) for key,
-             value in input_object.iteritems()]
+            [
+                (byteify(key), byteify(value))
+                for key, value in input_object.iteritems()
+            ]
         )
     elif isinstance(input_object, list):
         return [byteify(element) for element in input_object]

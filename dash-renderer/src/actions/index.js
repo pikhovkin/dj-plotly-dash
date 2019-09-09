@@ -1,6 +1,5 @@
 /* global fetch:true, Promise:true, document:true */
 import {
-    __,
     adjust,
     any,
     append,
@@ -15,14 +14,14 @@ import {
     isEmpty,
     keys,
     lensPath,
-    merge,
+    mergeLeft,
+    mergeDeepRight,
     pluck,
     propEq,
     reject,
     slice,
     sort,
     type,
-    //    values,
     view,
 } from 'ramda';
 import {createAction} from 'redux-actions';
@@ -39,7 +38,7 @@ export const computeGraphs = createAction(getAction('COMPUTE_GRAPHS'));
 export const computePaths = createAction(getAction('COMPUTE_PATHS'));
 export const setLayout = createAction(getAction('SET_LAYOUT'));
 export const setAppLifecycle = createAction(getAction('SET_APP_LIFECYCLE'));
-export const readConfig = createAction(getAction('READ_CONFIG'));
+export const setConfig = createAction(getAction('SET_CONFIG'));
 export const setHooks = createAction(getAction('SET_HOOKS'));
 export const onError = createAction(getAction('ON_ERROR'));
 export const resolveError = createAction(getAction('RESOLVE_ERROR'));
@@ -48,6 +47,12 @@ export function hydrateInitialOutputs() {
     return function(dispatch, getState) {
         triggerDefaultState(dispatch, getState);
         dispatch(setAppLifecycle(getAppState('HYDRATED')));
+    };
+}
+
+export function getCSRFHeader() {
+    return {
+        'X-CSRFToken': cookie.parse(document.cookie)._csrf_token,
     };
 }
 
@@ -413,12 +418,12 @@ function updateOutput(
             return;
         }
         const updatedQueue = adjust(
-            merge(__, {
+            thisRequestIndex,
+            mergeLeft({
                 status: status,
                 responseTime: Date.now(),
                 rejected,
             }),
-            thisRequestIndex,
             postRequestQueue
         );
         // We don't need to store any requests before this one
@@ -538,9 +543,7 @@ function updateOutput(
         } catch (e) {
             /* eslint-disable no-console */
             console.error(
-                `The following error occurred while executing ${
-                    clientside_function.namespace
-                }.${clientside_function.function_name} ` +
+                `The following error occurred while executing ${clientside_function.namespace}.${clientside_function.function_name} ` +
                     `in order to update component "${payload.output}" ⋁⋁⋁`
             );
             console.error(e);
@@ -561,9 +564,7 @@ function updateOutput(
             /* eslint-disable no-console */
             console.error(
                 'The clientside function ' +
-                    `${clientside_function.namespace}.${
-                        clientside_function.function_name
-                    } ` +
+                    `${clientside_function.namespace}.${clientside_function.function_name} ` +
                     'returned a Promise instead of a value. Promises are not ' +
                     'supported in Dash clientside right now, but may be in the ' +
                     'future.'
@@ -629,17 +630,16 @@ function updateOutput(
     }
 
     /* eslint-disable consistent-return */
-    return fetch(`${urlBase(config)}_dash-update-component`, {
-        /* eslint-enable consistent-return */
+    return fetch(
+        `${urlBase(config)}_dash-update-component`,
+        mergeDeepRight(config.fetch, {
+            /* eslint-enable consistent-return */
 
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': cookie.parse(document.cookie)._csrf_token,
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify(payload),
-    })
+            method: 'POST',
+            headers: getCSRFHeader(),
+            body: JSON.stringify(payload),
+        })
+    )
         .then(function handleResponse(res) {
             const isRejected = () => {
                 const latestRequestIndex = findLastIndex(
@@ -775,9 +775,7 @@ function updateOutput(
                                 function appendIds(child) {
                                     if (hasId(child)) {
                                         keys(child.props).forEach(childProp => {
-                                            const componentIdAndProp = `${
-                                                child.props.id
-                                            }.${childProp}`;
+                                            const componentIdAndProp = `${child.props.id}.${childProp}`;
                                             if (
                                                 has(
                                                     componentIdAndProp,
@@ -901,25 +899,33 @@ function updateOutput(
             });
         })
         .catch(err => {
-            // Handle html error responses
-            err.text().then(text => {
-                dispatch(
-                    onError({
-                        type: 'backEnd',
-                        error: {
-                            message: `Callback error updating ${
-                                isMultiOutputProp(payload.output)
-                                    ? parseMultipleOutputs(payload.output).join(
-                                          ', '
-                                      )
-                                    : payload.output
-                            }`,
-                            html: text,
-                        },
-                    })
-                );
-            });
+            const message = `Callback error updating ${
+                isMultiOutputProp(payload.output)
+                    ? parseMultipleOutputs(payload.output).join(', ')
+                    : payload.output
+            }`;
+            handleAsyncError(err, message, dispatch);
         });
+}
+
+export function handleAsyncError(err, message, dispatch) {
+    // Handle html error responses
+    const errText =
+        err && typeof err.text === 'function'
+            ? err.text()
+            : Promise.resolve(err);
+
+    errText.then(text => {
+        dispatch(
+            onError({
+                type: 'backEnd',
+                error: {
+                    message,
+                    html: text,
+                },
+            })
+        );
+    });
 }
 
 export function serialize(state) {

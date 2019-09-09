@@ -8,6 +8,7 @@ import glob
 import importlib
 import textwrap
 import re
+import warnings
 
 from ._all_keywords import r_keywords
 from ._py_components_generation import reorder_props
@@ -18,15 +19,17 @@ from ._py_components_generation import reorder_props
 # code below
 r_component_string = """{funcname} <- function({default_argtext}{wildcards}) {{
     {wildcard_declaration}
+    props <- list({default_paramtext}{wildcards})
+    if (length(props) > 0) {{
+        props <- props[!vapply(props, is.null, logical(1))]
+    }}
     component <- list(
-        props = list({default_paramtext}{wildcards}),
+        props = props,
         type = '{name}',
         namespace = '{project_shortname}',
         propNames = c({prop_names}{wildcard_names}),
         package = '{package_name}'
         )
-
-    component$props <- filter_null(component$props)
 
     structure(component, class = c('dash_component', 'list'))
 }}
@@ -83,7 +86,7 @@ Version: {package_version}
 Authors @R: as.person(c({package_author}))
 Description: {package_description}
 Depends: R (>= 3.0.2){package_depends}
-Imports: dash{package_imports}
+Imports: {package_imports}
 Suggests: {package_suggests}
 License: {package_license}
 URL: {package_url}
@@ -91,7 +94,7 @@ BugReports: {package_issues}
 Encoding: UTF-8
 LazyData: true
 Author: {package_author_no_email}
-Maintainer: {package_author}
+Maintainer: {maintainer}
 """
 
 rbuild_ignore_string = r"""# ignore JS config files/folders
@@ -103,6 +106,11 @@ lib/
 .builderrc
 .eslintrc
 .npmignore
+.editorconfig
+.eslintignore
+.prettierrc
+.circleci
+.github
 
 # demo folder has special meaning in R
 # this should hopefully make it still
@@ -129,20 +137,42 @@ pkghelp_stub = """% Auto-generated: do not edit by hand
 \\docType{{package}}
 \\name{{{package_name}-package}}
 \\alias{{{package_name}}}
-\\title{{{pkg_help_header}}}
+\\title{{{pkg_help_title}}}
 \\description{{
-{pkg_help_desc}
-}}
-\\seealso{{
-Useful links:
-\\itemize{{
-  \\item \\url{{https://github.com/plotly/{lib_name}}}
-  \\item Report bugs at \\url{{https://github.com/plotly/{lib_name}/issues}}
-}}
+{pkg_help_description}
 }}
 \\author{{
-\\strong{{Maintainer}}: {package_author}
+\\strong{{Maintainer}}: {maintainer}
 }}
+"""
+
+wildcard_helper = """
+dash_assert_valid_wildcards <- function (attrib = list("data", "aria"), ...)
+{
+    args <- list(...)
+    validation_results <- lapply(names(args), function(x) {
+        grepl(paste0("^(", paste0(attrib, collapse="|"), ")-[a-zA-Z0-9_-]+$"),
+            x)
+    })
+    if (FALSE %in% validation_results) {
+        stop(sprintf("The following props are not valid in this component: '%s'",
+            paste(names(args)[grepl(FALSE, unlist(validation_results))],
+                collapse = ", ")), call. = FALSE)
+    }
+    else {
+        return(args)
+    }
+}
+"""  # noqa:E501
+
+wildcard_template = """
+    wildcard_names = names(dash_assert_valid_wildcards(attrib = list({}), ...))
+"""
+
+wildcard_help_template = """
+
+
+\\item{{...}}{{wildcards allowed have the form: `{}`}}
 """
 
 
@@ -159,17 +189,17 @@ def generate_class_string(name, props, project_shortname, prefix):
     wildcards = ""
     wildcard_declaration = ""
     wildcard_names = ""
-
-    if any("-*" in key for key in prop_keys):
-        wildcards = ", ..."
-        wildcard_declaration = (
-            "\n    wildcard_names = names(assert_valid_wildcards(...))\n"
-        )
-        wildcard_names = ", wildcard_names"
-
     default_paramtext = ""
     default_argtext = ""
-    default_wildcards = ""
+    accepted_wildcards = ""
+
+    if any(key.endswith("-*") for key in prop_keys):
+        accepted_wildcards = get_wildcards_r(prop_keys)
+        wildcards = ", ..."
+        wildcard_declaration = wildcard_template.format(
+            accepted_wildcards.replace("-*", "")
+        )
+        wildcard_names = ", wildcard_names"
 
     # Produce a string with all property names other than WCs
     prop_names = ", ".join(
@@ -178,20 +208,16 @@ def generate_class_string(name, props, project_shortname, prefix):
         if "*" not in p and p not in ["setProps"]
     )
 
-    # in R, we set parameters with no defaults to NULL
-    # Here we'll do that if no default value exists
-    default_wildcards += ", ".join("'{}'".format(p)
-                                   for p in prop_keys if "*" in p)
-
-    if default_wildcards == "":
-        default_wildcards = "NULL"
-    else:
-        default_wildcards = "c({})".format(default_wildcards)
-
     # Filter props to remove those we don't want to expose
     for item in prop_keys[:]:
-        if item.endswith("-*") or item in r_keywords or item == "setProps":
+        if item.endswith("-*") or item == "setProps":
             prop_keys.remove(item)
+        elif item in r_keywords:
+            prop_keys.remove(item)
+            warnings.warn((
+                'WARNING: prop "{}" in component "{}" is an R keyword'
+                ' - REMOVED FROM THE R COMPONENT'
+            ).format(item, name))
 
     default_argtext += ", ".join("{}=NULL".format(p) for p in prop_keys)
 
@@ -228,10 +254,10 @@ def generate_js_metadata(pkg_data, project_shortname):
     -------
     function_string = complete R function code to provide component features
     """
-    importlib.import_module(project_shortname)
-
-    # import component library module into sys
-    mod = sys.modules[project_shortname]
+    # make sure the module we're building is available to Python,
+    # even if it hasn't been installed yet
+    sys.path.insert(0, os.getcwd())
+    mod = importlib.import_module(project_shortname)
 
     alldist = getattr(mod, "_js_dist", []) + getattr(mod, "_css_dist", [])
 
@@ -256,7 +282,7 @@ def generate_js_metadata(pkg_data, project_shortname):
             if "dash_" in rpp:
                 dep_name = rpp.split(".")[0]
             else:
-                dep_name = "{}_{}".format(project_shortname, str(dep))
+                dep_name = "{}".format(project_shortname)
                 project_ver = str(dep)
             if "css" in rpp:
                 css_name = "'{}'".format(rpp)
@@ -278,10 +304,10 @@ def generate_js_metadata(pkg_data, project_shortname):
     elif len(alldist) == 1:
         rpp = alldist[0]["relative_package_path"]
         if "css" in rpp:
-            css_name = rpp
+            css_name = "'{}'".format(rpp)
             script_name = "NULL"
         else:
-            script_name = rpp
+            script_name = "'{}'".format(rpp)
             css_name = "NULL"
         function_frame_body = frame_body_template.format(
             project_shortname=project_shortname,
@@ -298,7 +324,15 @@ def generate_js_metadata(pkg_data, project_shortname):
     return function_string
 
 
-def write_help_file(name, props, description, prefix):
+# This method wraps code within arbitrary LaTeX-like tags, which are used
+# by R's internal help parser for constructing man pages
+def wrap(tag, code):
+    if tag == "":
+        return code
+    return '\\{}{{\n{}}}'.format(tag, code)
+
+
+def write_help_file(name, props, description, prefix, rpkg_data):
     """
     Write R documentation file (.Rd) given component name and properties
 
@@ -308,20 +342,20 @@ def write_help_file(name, props, description, prefix):
     props = the properties of the component
     description = the component's description, inserted into help file header
     prefix = the DashR library prefix (optional, can be a blank string)
+    rpkg_data = package metadata (optional)
 
     Returns
     -------
     writes an R help file to the man directory for the generated R package
 
     """
-    file_name = format_fn_name(prefix, name) + ".Rd"
+    funcname = format_fn_name(prefix, name)
+    file_name = funcname + ".Rd"
 
     default_argtext = ""
     item_text = ""
 
     prop_keys = list(props.keys())
-
-    has_wildcards = any("-*" in key for key in prop_keys)
 
     # Filter props to remove those we don't want to expose
     for item in prop_keys[:]:
@@ -331,41 +365,51 @@ def write_help_file(name, props, description, prefix):
     default_argtext += ", ".join("{}=NULL".format(p) for p in prop_keys)
 
     item_text += "\n\n".join(
-        "\\item{{{}}}{{{}{}}}".format(p,
-                                      print_r_type(
-                                          props[p]["type"]
-                                      ),
-                                      props[p]["description"])
+        "\\item{{{}}}{{{}{}}}".format(
+            p,
+            print_r_type(props[p]["type"]),
+            props[p]["description"]
+        )
         for p in prop_keys
     )
 
-    if has_wildcards:
-        item_text += '\n\n\\item{...}{wildcards: `data-*` or `aria-*`}'
+    if any(key.endswith("-*") for key in prop_keys):
         default_argtext += ', ...'
+        item_text += wildcard_help_template.format(get_wildcards_r(prop_keys))
 
     # in R, the online help viewer does not properly wrap lines for
     # the usage string -- we will hard wrap at 80 characters using
     # textwrap.fill, starting from the beginning of the usage string
-    argtext = prefix + name + "({})".format(default_argtext)
 
     file_path = os.path.join('man', file_name)
     with open(file_path, 'w') as f:
         f.write(help_string.format(
-            funcname=format_fn_name(prefix, name),
+            funcname=funcname,
             name=name,
-            default_argtext=textwrap.fill(argtext,
+            default_argtext=textwrap.fill(default_argtext,
                                           width=80,
                                           break_long_words=False),
             item_text=item_text,
             description=description.replace('\n', ' ')
         ))
+    if rpkg_data is not None and 'r_examples' in rpkg_data:
+        ex = rpkg_data.get('r_examples')
+        the_ex = ([e for e in ex if e.get("name") == funcname] or [None])[0]
+        result = ""
+        if the_ex and "code" in the_ex.keys():
+            result += wrap("examples",
+                           wrap("dontrun" if the_ex.get("dontrun") else "",
+                                the_ex["code"]))
+            with open(file_path, 'a+') as fa:
+                fa.write(result + '\n')
 
 
 def write_class_file(name,
                      props,
                      description,
                      project_shortname,
-                     prefix=None):
+                     prefix=None,
+                     rpkg_data=None):
     props = reorder_props(props=props)
 
     # generate the R help pages for each of the Dash components that we
@@ -373,20 +417,12 @@ def write_class_file(name,
     # we may eventually be able to generate similar documentation using
     # doxygen and an R plugin, but for now we'll just do it on our own
     # from within Python
-    write_help_file(
-        name,
-        props,
-        description,
-        prefix
-    )
+    write_help_file(name, props, description, prefix, rpkg_data)
 
     import_string =\
         "# AUTO GENERATED FILE - DO NOT EDIT\n\n"
     class_string = generate_class_string(
-        name,
-        props,
-        project_shortname,
-        prefix
+        name, props, project_shortname, prefix
     )
 
     file_name = format_fn_name(prefix, name) + ".R"
@@ -399,7 +435,7 @@ def write_class_file(name,
     print("Generated {}".format(file_name))
 
 
-def write_js_metadata(pkg_data, project_shortname):
+def write_js_metadata(pkg_data, project_shortname, has_wildcards):
     """
     Write an internal (not exported) R function to return all JS
     dependencies as required by dash.
@@ -425,12 +461,16 @@ def write_js_metadata(pkg_data, project_shortname):
     file_path = os.path.join("R", file_name)
     with open(file_path, "w") as f:
         f.write(function_string)
+        if has_wildcards:
+            f.write(wildcard_helper)
 
     # now copy over all JS dependencies from the (Python) components dir
     # the inst/lib directory for the package won't exist on first call
     # create this directory if it is missing
-    if not os.path.exists("inst/deps"):
-        os.makedirs("inst/deps")
+    if os.path.exists("inst/deps"):
+        shutil.rmtree("inst/deps")
+
+    os.makedirs("inst/deps")
 
     for javascript in glob.glob("{}/*.js".format(project_shortname)):
         shutil.copy(javascript, "inst/deps/")
@@ -445,11 +485,13 @@ def write_js_metadata(pkg_data, project_shortname):
 # pylint: disable=R0914, R0913, R0912, R0915
 def generate_rpkg(
         pkg_data,
+        rpkg_data,
         project_shortname,
         export_string,
         package_depends,
         package_imports,
-        package_suggests
+        package_suggests,
+        has_wildcards,
 ):
     """
     Generate documents for R package creation
@@ -457,8 +499,12 @@ def generate_rpkg(
     Parameters
     ----------
     pkg_data
+    rpkg_data
     project_shortname
     export_string
+    package_depends
+    package_imports
+    package_suggests
 
     Returns
     -------
@@ -478,12 +524,12 @@ def generate_rpkg(
         package_depends = ", " + package_depends.strip(",").lstrip()
 
     if package_imports:
-        package_imports = ", " + package_imports.strip(",").lstrip()
+        package_imports = package_imports.strip(",").lstrip()
 
     if package_suggests:
         package_suggests = package_suggests.strip(",").lstrip()
 
-    if "bugs" in pkg_data.keys():
+    if "bugs" in pkg_data:
         package_issues = pkg_data["bugs"].get("url", "")
     else:
         package_issues = ""
@@ -493,7 +539,7 @@ def generate_rpkg(
             file=sys.stderr,
         )
 
-    if "homepage" in pkg_data.keys():
+    if "homepage" in pkg_data:
         package_url = pkg_data.get("homepage", "")
     else:
         package_url = ""
@@ -505,6 +551,8 @@ def generate_rpkg(
     package_author = pkg_data.get("author")
 
     package_author_no_email = package_author.split(" <")[0] + " [aut]"
+
+    maintainer = pkg_data.get("maintainer", pkg_data.get("author"))
 
     if not (os.path.isfile("LICENSE") or os.path.isfile("LICENSE.txt")):
         package_license = pkg_data.get("license", "")
@@ -529,37 +577,15 @@ def generate_rpkg(
     # generate the internal (not exported to the user) functions which
     # supply the JavaScript dependencies to the dash package.
     # this avoids having to generate an RData file from within Python.
-    write_js_metadata(pkg_data=pkg_data, project_shortname=project_shortname)
+    write_js_metadata(pkg_data, project_shortname, has_wildcards)
 
-    with open("NAMESPACE", "w") as f:
+    with open("NAMESPACE", "w+") as f:
         f.write(import_string)
         f.write(export_string)
         f.write(packages_string)
 
-    with open(".Rbuildignore", "w") as f2:
+    with open(".Rbuildignore", "w+") as f2:
         f2.write(rbuild_ignore_string)
-
-    # Write package stub files for R online help, generate if
-    # dashHtmlComponents or dashCoreComponents; makes it easy
-    # for R users to bring up main package help page
-    pkg_help_header = ""
-
-    if package_name in ["dashHtmlComponents"]:
-        pkg_help_header = "Vanilla HTML Components for Dash"
-        pkg_help_desc = "Dash is a web application framework that\n\
-provides pure Python and R abstraction around HTML, CSS, and\n\
-JavaScript. Instead of writing HTML or using an HTML\n\
-templating engine, you compose your layout using R\n\
-functions within the dashHtmlComponents package. The\n\
-source for this package is on GitHub:\n\
-plotly/dash-html-components."
-    if package_name in ["dashCoreComponents"]:
-        pkg_help_header = "Core Interactive UI Components for Dash"
-        pkg_help_desc = "Dash ships with supercharged components for\n\
-interactive user interfaces. A core set of components,\n\
-written and maintained by the Dash team, is available in\n\
-the dashCoreComponents package. The source for this package\n\
-is on GitHub: plotly/dash-core-components."
 
     description_string = description_template.format(
         package_name=package_name,
@@ -573,21 +599,23 @@ is on GitHub: plotly/dash-core-components."
         package_url=package_url,
         package_issues=package_issues,
         package_author_no_email=package_author_no_email,
+        maintainer=maintainer,
     )
 
-    with open("DESCRIPTION", "w") as f3:
+    with open("DESCRIPTION", "w+") as f3:
         f3.write(description_string)
 
-    if pkg_help_header != "":
-        pkghelp = pkghelp_stub.format(
-            package_name=package_name,
-            pkg_help_header=pkg_help_header,
-            pkg_help_desc=pkg_help_desc,
-            lib_name=lib_name,
-            package_author=package_author,
-        )
-        with open(pkghelp_stub_path, "w") as f4:
-            f4.write(pkghelp)
+    if rpkg_data is not None:
+        if rpkg_data.get("pkg_help_description"):
+            pkghelp = pkghelp_stub.format(
+                package_name=package_name,
+                pkg_help_title=rpkg_data.get("pkg_help_title"),
+                pkg_help_description=rpkg_data.get("pkg_help_description"),
+                lib_name=lib_name,
+                maintainer=maintainer,
+            )
+            with open(pkghelp_stub_path, "w") as f4:
+                f4.write(pkghelp)
 
 
 # This converts a string from snake case to camel case
@@ -614,20 +642,44 @@ def generate_exports(
         components,
         metadata,
         pkg_data,
+        rpkg_data,
         prefix,
         package_depends,
         package_imports,
         package_suggests,
         **kwargs
 ):
+    export_string = make_namespace_exports(components, prefix)
+
+    # Look for wildcards in the metadata
+    has_wildcards = False
+    for component_data in metadata.values():
+        if any(key.endswith('-*') for key in component_data['props']):
+            has_wildcards = True
+            break
+
+    # now, bundle up the package information and create all the requisite
+    # elements of an R package, so that the end result is installable either
+    # locally or directly from GitHub
+    generate_rpkg(
+        pkg_data,
+        rpkg_data,
+        project_shortname,
+        export_string,
+        package_depends,
+        package_imports,
+        package_suggests,
+        has_wildcards,
+    )
+
+
+def make_namespace_exports(components, prefix):
     export_string = ""
     for component in components:
         if (
                 not component.endswith("-*")
                 and str(component) not in r_keywords
-                and str(component) not in ["setProps",
-                                           "children",
-                                           "dashEvents"]
+                and str(component) not in ["setProps", "children"]
         ):
             export_string += "export({}{})\n".format(prefix, component)
 
@@ -639,37 +691,49 @@ def generate_exports(
     omitlist = ["utils.R", "internal.R"] + [
         "{}{}.R".format(prefix, component) for component in components
     ]
-    stripped_line = ""
     fnlist = []
 
     for script in os.listdir("R"):
         if script.endswith(".R") and script not in omitlist:
             rfilelist += [os.path.join("R", script)]
 
-    # in R, either = or <- may be used to create and assign objects
-    definitions = ["<-function", "=function"]
-
     for rfile in rfilelist:
         with open(rfile, "r") as script:
-            for line in script:
-                stripped_line = line.replace(" ", "").replace("\n", "")
-                if any(fndef in stripped_line for fndef in definitions):
-                    fnlist += set([re.split("<-|=", stripped_line)[0]])
+            s = script.read()
+
+            # remove comments
+            s = re.sub('#.*$', '', s, flags=re.M)
+
+            # put the whole file on one line
+            s = s.replace("\n", " ").replace("\r", " ")
+
+            # empty out strings, in case of unmatched block terminators
+            s = re.sub(r"'([^'\\]|\\'|\\[^'])*'", "''", s)
+            s = re.sub(r'"([^"\\]|\\"|\\[^"])*"', '""', s)
+
+            # empty out block terminators () and {}
+            # so we don't catch nested functions, or functions as arguments
+            # repeat until it stops changing, in case of multiply nested blocks
+            prev_len = len(s) + 1
+            while len(s) < prev_len:
+                prev_len = len(s)
+                s = re.sub(r"\(([^()]|\(\))*\)", "()", s)
+                s = re.sub(r"\{([^{}]|\{\})*\}", "{}", s)
+
+            # now, in whatever is left, look for functions
+            matches = re.findall(
+                # in R, either = or <- may be used to create and assign objects
+                r"([^A-Za-z0-9._]|^)([A-Za-z0-9._]+)\s*(=|<-)\s*function", s
+            )
+            for match in matches:
+                fn = match[1]
+                # Allow users to mark functions as private by prefixing with .
+                if fn[0] != "." and fn not in fnlist:
+                    fnlist.append(fn)
 
     export_string += "\n".join("export({})".format(function)
                                for function in fnlist)
-
-    # now, bundle up the package information and create all the requisite
-    # elements of an R package, so that the end result is installable either
-    # locally or directly from GitHub
-    generate_rpkg(
-        pkg_data,
-        project_shortname,
-        export_string,
-        package_depends,
-        package_imports,
-        package_suggests,
-    )
+    return export_string
 
 
 def get_r_prop_types(type_object):
@@ -821,3 +885,13 @@ def create_prop_docstring_r(prop_name, type_object, required, description,
                    ': {}'.format(description) if description != '' else ''
                ),
                is_required='required' if required else 'optional')
+
+
+def get_wildcards_r(prop_keys):
+    wildcards = ""
+    wildcards += ", ".join("'{}'".format(p)
+                           for p in prop_keys if p.endswith("-*"))
+
+    if wildcards == "":
+        wildcards = "NULL"
+    return wildcards
