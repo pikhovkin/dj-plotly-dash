@@ -26,6 +26,13 @@ setup(
         'all': general_requires + ['dash_renderer==1.0.0'],
         'no-dash-renderer': general_requires
     },
+    entry_points={
+        "console_scripts": [
+            "dash-generate-components=dash.development.component_generator:cli",
+            "renderer=dash.development.build_process:renderer",
+        ],
+        "pytest11": ["dash = dash.testing.plugin"],
+    },
     url='https://github.com/pikhovkin/dj-plotly-dash',
     classifiers=[
         'Development Status :: 5 - Production/Stable',

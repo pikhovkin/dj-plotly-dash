@@ -106,3 +106,108 @@ class Tests(IntegrationTests):
         # the prevent default was not displayed
         self.wait_for_text_to_equal(self.devtools_error_count_locator, "1")
 
+    def test_dveh_validation_errors_in_place(self):
+        class DashDvehValidationErrorsInPlace(DashView):
+            dash_name = 'dveh_validation_errors_in_place'
+            dash_components = {html.__name__, dcc.__name__}
+
+            def __init__(self, **kwargs):
+                super(DashDvehValidationErrorsInPlace, self).__init__(**kwargs)
+
+                self.dash._dev_tools.ui = True
+                self.dash._dev_tools.serve_dev_bundles = True
+
+                self.dash.layout = html.Div(
+                    [
+                        html.Button(id="button", children="update-graph", n_clicks=0),
+                        dcc.Graph(id="output", figure={"data": [{"y": [3, 1, 2]}]}),
+                    ]
+                )
+                self.dash.callback(Output("output", "animate"), [Input("button", "n_clicks")])(self.update_output)
+
+            def update_output(self, n_clicks):
+                if n_clicks == 1:
+                    return n_clicks
+
+
+        self.open('dash/{}/'.format(DashDvehValidationErrorsInPlace.dash_name))
+
+        self.find_element("#button").click()
+        self.wait_for_text_to_equal(self.devtools_error_count_locator, "1")
+
+        self.find_element(".test-devtools-error-toggle").click()
+
+    def test_dveh_validation_errors_creation(self):
+        class DashDvehValidationErrorsCreation(DashView):
+            dash_name = 'dveh_validation_errors_creation'
+            dash_components = {html.__name__, dcc.__name__}
+
+            def __init__(self, **kwargs):
+                super(DashDvehValidationErrorsCreation, self).__init__(**kwargs)
+
+                self.dash._dev_tools.ui = True
+                self.dash._dev_tools.serve_dev_bundles = True
+
+                self.dash.layout = html.Div(
+                    [
+                        html.Button(id="button", children="update-graph", n_clicks=0),
+                        html.Div(id="output"),
+                    ]
+                )
+                self.dash.callback(Output("output", "children"), [Input("button", "n_clicks")])(self.update_output)
+
+            def update_output(self, n_clicks):
+                if n_clicks == 1:
+                    return dcc.Graph(
+                        id="output", animate=0, figure={"data": [{"y": [3, 1, 2]}]}
+                    )
+
+        self.open('dash/{}/'.format(DashDvehValidationErrorsCreation.dash_name))
+
+        self.wait_for_element_by_id("button").click()
+        self.wait_for_text_to_equal(self.devtools_error_count_locator, "1")
+
+        self.find_element(".test-devtools-error-toggle").click()
+
+    def test_dveh_multiple_outputs(self):
+        class DashDvehMultipleOutputs(DashView):
+            dash_name = 'dveh_multiple_outputs'
+            dash_components = {html.__name__}
+
+            def __init__(self, **kwargs):
+                super(DashDvehMultipleOutputs, self).__init__(**kwargs)
+
+                self.dash._dev_tools.ui = True
+                self.dash._dev_tools.serve_dev_bundles = True
+
+                self.dash.layout = html.Div(
+                    [
+                        html.Button(
+                            id="multi-output",
+                            children="trigger multi output update",
+                            n_clicks=0,
+                        ),
+                        html.Div(id="multi-1"),
+                        html.Div(id="multi-2"),
+                    ]
+                )
+                self.dash.callback(
+                    [Output("multi-1", "children"), Output("multi-2", "children")],
+                    [Input("multi-output", "n_clicks")],
+                )(self.update_output)
+
+            def update_output(self, n_clicks):
+                if n_clicks == 0:
+                    return [
+                        "Output 1 - {} Clicks".format(n_clicks),
+                        "Output 2 - {} Clicks".format(n_clicks),
+                    ]
+                else:
+                    n_clicks / 0
+
+        self.open('dash/{}/'.format(DashDvehMultipleOutputs.dash_name))
+
+        self.find_element("#multi-output").click()
+        self.wait_for_text_to_equal(self.devtools_error_count_locator, "1")
+
+        self.find_element(".test-devtools-error-toggle").click()

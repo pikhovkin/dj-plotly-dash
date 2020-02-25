@@ -8,8 +8,8 @@ import importlib
 import json
 import pkgutil
 import pprint
-
 from functools import wraps
+from textwrap import dedent
 
 import plotly
 import dash_renderer
@@ -58,67 +58,122 @@ no_update = _NoUpdate()
 # pylint: disable=too-many-arguments, too-many-locals
 class Dash(object):
     """
-        Dash is a framework for building analytical web applications.
-        No JavaScript required.
+    Dash is a framework for building analytical web applications.
+    No JavaScript required.
 
-        If a parameter can be set by an environment variable, that is listed as:
-            env: ``DASH_****``
-        Values provided here take precedence over environment variables.
+    If a parameter can be set by an environment variable, that is listed as:
+        env: ``DASH_****``
+    Values provided here take precedence over environment variables.
 
-        :param assets_folder: a path, relative to the current working directory,
-            for extra files to be used in the browser. Default ``'assets'``.
-            All .js and .css files will be loaded immediately unless excluded by
-            ``assets_ignore``, and other files such as images will be served if
-            requested.
-        :type assets_folder: string
+    :param name: The name Flask should use for your app. Even if you provide
+        your own ``server``, ``name`` will be used to help find assets.
+        Typically ``__name__`` (the magic global var, not a string) is the
+        best value to use. Default ``'__main__'``, env: ``DASH_APP_NAME``
+    :type name: string
 
-        :param assets_ignore: A regex, as a string to pass to ``re.compile``, for
-            assets to omit from immediate loading. Ignored files will still be
-            served if specifically requested. You cannot use this to prevent access
-            to sensitive files.
-        :type assets_ignore: string
+    :param server: Sets the Flask server for your app. There are three options:
+        ``True`` (default): Dash will create a new server
+        ``False``: The server will be added later via ``app.init_app(server)``
+            where ``server`` is a ``flask.Flask`` instance.
+        ``flask.Flask``: use this pre-existing Flask server.
+    :type server: boolean or flask.Flask
 
-        :param url_base_pathname: A local URL prefix to use app-wide.
-            Default ``'/'``. Both `requests_pathname_prefix` and
-            `routes_pathname_prefix` default to `url_base_pathname`.
-        :type url_base_pathname: string
+    :param assets_folder: a path, relative to the current working directory,
+        for extra files to be used in the browser. Default ``'assets'``.
+        All .js and .css files will be loaded immediately unless excluded by
+        ``assets_ignore``, and other files such as images will be served if
+        requested.
+    :type assets_folder: string
 
-        :param serve_locally: If ``True`` (default), assets and dependencies
-            (Dash and Component js and css) will be served from local URLs.
-            If ``False`` we will use CDN links where available.
-        :type serve_locally: boolean
+    :param assets_url_path: The local urls for assets will be:
+        ``requests_pathname_prefix + assets_url_path + '/' + asset_path``
+        where ``asset_path`` is the path to a file inside ``assets_folder``.
+        Default ``'assets'``.
+    :type asset_url_path: string
 
-        :param meta_tags: html <meta> tags to be added to the index page.
-            Each dict should have the attributes and values for one tag, eg:
-            ``{'name': 'description', 'content': 'My App'}``
-        :type meta_tags: list of dicts
+    :param assets_ignore: A regex, as a string to pass to ``re.compile``, for
+        assets to omit from immediate loading. Ignored files will still be
+        served if specifically requested. You cannot use this to prevent access
+        to sensitive files.
+    :type assets_ignore: string
 
-        :param external_scripts: Additional JS files to load with the page.
-            Each entry can be a string (the URL) or a dict with ``src`` (the URL)
-            and optionally other ``<script>`` tag attributes such as ``integrity``
-            and ``crossorigin``.
-        :type external_scripts: list of strings or dicts
+    :param assets_external_path: an absolute URL from which to load assets.
+        Use with ``serve_locally=False``. Dash can still find js and css to
+        automatically load if you also keep local copies in your assets
+        folder that Dash can index, but external serving can improve
+        performance and reduce load on the Dash server.
+        env: ``DASH_ASSETS_EXTERNAL_PATH``
+    :type assets_external_path: string
 
-        :param external_stylesheets: Additional CSS files to load with the page.
-            Each entry can be a string (the URL) or a dict with ``href`` (the URL)
-            and optionally other ``<link>`` tag attributes such as ``rel``,
-            ``integrity`` and ``crossorigin``.
-        :type external_stylesheets: list of strings or dicts
+    :param include_assets_files: Default ``True``, set to ``False`` to prevent
+        immediate loading of any assets. Assets will still be served if
+        specifically requested. You cannot use this to prevent access
+        to sensitive files. env: ``DASH_INCLUDE_ASSETS_FILES``
+    :type include_assets_files: boolean
 
-        :param suppress_callback_exceptions: Default ``False``: check callbacks to
-            ensure referenced IDs exist and props are valid. Set to ``True``
-            if your layout is dynamic, to bypass these checks.
-        :type suppress_callback_exceptions: boolean
+    :param url_base_pathname: A local URL prefix to use app-wide.
+        Default ``'/'``. Both `requests_pathname_prefix` and
+        `routes_pathname_prefix` default to `url_base_pathname`.
+        env: ``DASH_URL_BASE_PATHNAME``
+    :type url_base_pathname: string
 
-        :param show_undo_redo: Default ``False``, set to ``True`` to enable undo
-            and redo buttons for stepping through the history of the app state.
-        :type show_undo_redo: boolean
+    :param requests_pathname_prefix: A local URL prefix for file requests.
+        Defaults to `url_base_pathname`, and must end with
+        `routes_pathname_prefix`. env: ``DASH_REQUESTS_PATHNAME_PREFIX``
+    :type requests_pathname_prefix: string
 
-        :param plugins: Extend Dash functionality by passing a list of objects
-            with a ``plug`` method, taking a single argument: this app, which will
-            be called after the view is attached.
-        :type plugins: list of objects
-        """
+    :param routes_pathname_prefix: A local URL prefix for JSON requests.
+        Defaults to ``url_base_pathname``, and must start and end
+        with ``'/'``. env: ``DASH_ROUTES_PATHNAME_PREFIX``
+    :type routes_pathname_prefix: string
+
+    :param serve_locally: If ``True`` (default), assets and dependencies
+        (Dash and Component js and css) will be served from local URLs.
+        If ``False`` we will use CDN links where available.
+    :type serve_locally: boolean
+
+    :param compress: Use gzip to compress files and data served by Flask.
+        Default ``True``
+    :type compress: boolean
+
+    :param meta_tags: html <meta> tags to be added to the index page.
+        Each dict should have the attributes and values for one tag, eg:
+        ``{'name': 'description', 'content': 'My App'}``
+    :type meta_tags: list of dicts
+
+    :param index_string: Override the standard Dash index page.
+        Must contain the correct insertion markers to interpolate various
+        content into it depending on the app config and components used.
+        See https://dash.plot.ly/external-resources for details.
+    :type index_string: string
+
+    :param external_scripts: Additional JS files to load with the page.
+        Each entry can be a string (the URL) or a dict with ``src`` (the URL)
+        and optionally other ``<script>`` tag attributes such as ``integrity``
+        and ``crossorigin``.
+    :type external_scripts: list of strings or dicts
+
+    :param external_stylesheets: Additional CSS files to load with the page.
+        Each entry can be a string (the URL) or a dict with ``href`` (the URL)
+        and optionally other ``<link>`` tag attributes such as ``rel``,
+        ``integrity`` and ``crossorigin``.
+    :type external_stylesheets: list of strings or dicts
+
+    :param suppress_callback_exceptions: Default ``False``: check callbacks to
+        ensure referenced IDs exist and props are valid. Set to ``True``
+        if your layout is dynamic, to bypass these checks.
+        env: ``DASH_SUPPRESS_CALLBACK_EXCEPTIONS``
+    :type suppress_callback_exceptions: boolean
+
+    :param show_undo_redo: Default ``False``, set to ``True`` to enable undo
+        and redo buttons for stepping through the history of the app state.
+    :type show_undo_redo: boolean
+
+    :param plugins: Extend Dash functionality by passing a list of objects
+        with a ``plug`` method, taking a single argument: this app, which will
+        be called after the view is attached.
+    :type plugins: list of objects
+    """
 
     # pylint: disable=unused-argument
     def __init__(self,
@@ -316,8 +371,9 @@ class Dash(object):
 
     def _generate_css_dist_html(self):
         external_links = self.config.external_stylesheets
-        links = self._collect_and_register_resources(self.css.get_all_css(affix=getattr(self, '_res_affix', ''),
-                                                                          module_names=self.components))
+        links = self._collect_and_register_resources(
+            self.css.get_all_css(affix=getattr(self, '_res_affix', ''),
+                                 module_names=self.components))
 
         return '\n'.join([
             _format_tag('link', link, opened=True)
@@ -486,13 +542,13 @@ class Dash(object):
         if (layout is None and not self.config.suppress_callback_exceptions):
             # Without a layout, we can't do validation on the IDs and
             # properties of the elements in the callback.
-            raise exceptions.LayoutIsNotDefined('''
+            raise exceptions.LayoutIsNotDefined(dedent('''
                 Attempting to assign a callback to the application but
                 the `layout` property has not been assigned.
                 Assign the `layout` property before assigning callbacks.
                 Alternatively, suppress this warning by setting
                 `suppress_callback_exceptions=True`
-            '''.replace('    ', ''))
+            '''))
 
         outputs = output if is_multi else [output]
         for args, obj, name in [(outputs, Output, 'Output'),
@@ -527,7 +583,10 @@ class Dash(object):
                     arg_id = arg.component_id
                     arg_prop = getattr(arg, 'component_property', None)
                     if (arg_id not in layout and arg_id != layout_id):
-                        raise exceptions.NonExistentIdException('''
+                        all_ids = [k for k in layout]
+                        if layout_id:
+                            all_ids.append(layout_id)
+                        raise exceptions.NonExistentIdException(dedent('''
                             Attempting to assign a callback to the
                             component with the id "{0}" but no
                             components with id "{0}" exist in the
@@ -538,12 +597,7 @@ class Dash(object):
                             (and therefore not in the initial layout), then
                             you can suppress this exception by setting
                             `suppress_callback_exceptions=True`.
-                        '''.format(
-                            arg_id,
-                            list(layout.keys()) + (
-                                [layout_id] if layout_id else []
-                            )
-                        ).replace('    ', ''))
+                        ''').format(arg_id, all_ids))
 
                     component = (
                         layout if layout_id == arg_id else layout[arg_id]
@@ -553,34 +607,34 @@ class Dash(object):
                             arg_prop not in component.available_properties and
                             not any(arg_prop.startswith(w) for w in
                                     component.available_wildcard_properties)):
-                        raise exceptions.NonExistentPropException('''
+                        raise exceptions.NonExistentPropException(dedent('''
                             Attempting to assign a callback with
                             the property "{0}" but the component
                             "{1}" doesn't have "{0}" as a property.\n
                             Here are the available properties in "{1}":
                             {2}
-                        '''.format(
+                        ''').format(
                             arg_prop, arg_id, component.available_properties
-                        ).replace('    ', ''))
+                        ))
 
                     if hasattr(arg, 'component_event'):
-                        raise exceptions.NonExistentEventException('''
+                        raise exceptions.NonExistentEventException(dedent('''
                             Events have been removed.
                             Use the associated property instead.
-                        '''.replace('    ', ''))
+                        '''))
 
         if state and not inputs:
-            raise exceptions.MissingInputsException('''
+            raise exceptions.MissingInputsException(dedent('''
                 This callback has {} `State` {}
                 but no `Input` elements.\n
                 Without `Input` elements, this callback
                 will never get called.\n
                 (Subscribing to input components will cause the
                 callback to be called whenever their values change.)
-            '''.format(
+            ''').format(
                 len(state),
                 'elements' if len(state) > 1 else 'element'
-            ).replace('    ', ''))
+            ))
 
         for i in inputs:
             bad = None
@@ -631,25 +685,22 @@ class Dash(object):
                 return callback_id in callbacks
         if duplicate_check():
             if is_multi:
-                msg = '''
+                msg = dedent('''
                 Multi output {} contains an `Output` object
                 that was already assigned.
                 Duplicates:
                 {}
-                '''.format(
+                ''').format(
                     callback_id,
                     pprint.pformat(ns['duplicates'])
-                ).replace('    ', '')
+                )
             else:
-                msg = '''
+                msg = dedent('''
                 You have already assigned a callback to the output
                 with ID "{}" and property "{}". An output can only have
                 a single callback function. Try combining your inputs and
                 callback functions together into one function.
-                '''.format(
-                    output.component_id,
-                    output.component_property
-                ).replace('    ', '')
+                ''').format(output.component_id, output.component_property)
             raise exceptions.DuplicateCallbackOutput(msg)
 
     @staticmethod
@@ -662,7 +713,7 @@ class Dash(object):
             outer_id = "(id={:s})".format(outer_val.id) \
                 if getattr(outer_val, 'id', False) else ''
             outer_type = type(outer_val).__name__
-            raise exceptions.InvalidCallbackReturnValue('''
+            raise exceptions.InvalidCallbackReturnValue(dedent('''
             The callback for `{output:s}`
             returned a {object:s} having type `{type:s}`
             which is not JSON serializable.
@@ -674,15 +725,15 @@ class Dash(object):
             In general, Dash properties can only be
             dash components, strings, dictionaries, numbers, None,
             or lists of those.
-            '''.format(
+            ''').format(
                 output=repr(output),
                 object='tree with one value' if not toplevel else 'value',
                 type=bad_type,
                 location_header=(
                     'The value in question is located at'
                     if not toplevel else
-                    '''The value in question is either the only value returned,
-                    or is in the top level of the returned list,'''
+                    'The value in question is either the only value returned,'
+                    '\nor is in the top level of the returned list,'
                 ),
                 location=(
                     "\n" +
@@ -692,7 +743,7 @@ class Dash(object):
                     + "\n" + path + "\n"
                 ) if not toplevel else '',
                 bad_val=bad_val
-            ).replace('    ', ''))
+            ))
 
         def _value_is_valid(val):
             return (
@@ -850,7 +901,8 @@ class Dash(object):
         def wrap_func(func):
             @wraps(func)
             def add_context(*args, **kwargs):
-                output_value = func(*args, **kwargs)
+                # don't touch the comment on the next line - used by debugger
+                output_value = func(*args, **kwargs)  # %% callback invoked %%
                 if multi:
                     if not isinstance(output_value, (list, tuple)):
                         raise exceptions.InvalidCallbackReturnValue(
@@ -967,6 +1019,13 @@ class Dash(object):
                     ' in the initial layout: `{}`'.format(component_id))
             component_ids.add(component_id)
 
+    def _add_assets_resource(self, url_path, file_path):
+        res = {'asset_path': url_path, 'filepath': file_path}
+        if self.config.assets_external_path:
+            res['external_url'] = '{}{}'.format(
+                self.config.assets_external_path, url_path)
+        return res
+
     def _setup_dev_tools(self, **kwargs):
         debug = kwargs.get('debug', False)
         dev_tools = self._dev_tools = _AttributeDict()
@@ -976,7 +1035,8 @@ class Dash(object):
                 'props_check',
                 'serve_dev_bundles',
                 'hot_reload',
-                'silence_routes_logging'
+                'silence_routes_logging',
+                'prune_errors'
         ):
             dev_tools[attr] = kwargs.get(attr, None) or debug
 
@@ -992,21 +1052,16 @@ class Dash(object):
     def _walk_assets_directory(self):
         ignore_filter = [self.config.assets_ignore] if self.config.assets_ignore else None
 
-        def add_resource(p, filepath):
-            res = {'asset_path': p, 'filepath': filepath}
-            if self.config.assets_external_path:
-                res['external_url'] = '{}{}'.format(self.config.assets_external_path, path)
-            return res
-
-        files = list(get_files(staticfiles_storage, ignore_patterns=ignore_filter, location=self.config.assets_folder))
+        files = list(get_files(staticfiles_storage, ignore_patterns=ignore_filter,
+                               location=self.config.assets_folder))
         for f in sorted(files):
             path = staticfiles_storage.url(f)
             full = staticfiles_storage.path(f)
 
             if f.endswith('js'):
-                self.scripts.append_script(add_resource(path, full))
+                self.scripts.append_script(self._add_assets_resource(path, full))
             elif f.endswith('css'):
-                self.css.append_css(add_resource(path, full))
+                self.css.append_css(self._add_assets_resource(path, full))
             elif f.endswith('favicon.ico'):
                 self._favicon = path
 

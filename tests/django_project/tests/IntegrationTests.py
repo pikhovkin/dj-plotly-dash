@@ -26,6 +26,7 @@ class SeleniumDriverTimeout(Exception):
 
 class IntegrationTests(LiveServerTestCase):
     last_timestamp = 0
+    _last_ts = 0
 
     def wait_for_element_by_id(self, id, timeout=TIMEOUT):
         wait_for(lambda: None is not invincible(

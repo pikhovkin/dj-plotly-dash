@@ -19,8 +19,6 @@ class DashView(BaseDashView):
         super(DashView, self).__init__(**kwargs)
 
         self.dash.config.routes_pathname_prefix = '/dash/{}/'.format(self.dash_name)
-        self.dash.css.config.serve_locally = True
-        self.dash.scripts.config.serve_locally = True
 
     def _dash_component_suites(self, request, *args, **kwargs):
         self.dash._generate_scripts_html()
