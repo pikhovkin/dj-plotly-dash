@@ -5,20 +5,8 @@ import dash_html_components as html
 
 import dash
 
+from tests import DashView
 from tests.IntegrationTests import IntegrationTests, TIMEOUT
-
-
-class DashView(dash.BaseDashView):
-    def __init__(self, **kwargs):
-        super(DashView, self).__init__(**kwargs)
-
-        self.dash.config.routes_pathname_prefix = '/dash/{}/'.format(self.dash_name)
-
-    def _dash_component_suites(self, request, *args, **kwargs):
-        self.dash._generate_scripts_html()
-        self.dash._generate_css_dist_html()
-
-        return super(DashView, self)._dash_component_suites(request, *args, **kwargs)
 
 
 class Tests(IntegrationTests):
@@ -66,9 +54,7 @@ class Tests(IntegrationTests):
                 self.dash._dev_tools.ui = False
                 self.dash._dev_tools.props_check = True
                 self.dash._dev_tools.serve_dev_bundles = True
-                # self.dash._dev_tools.hot_reload = True
                 self.dash._dev_tools.silence_routes_logging = True
-                self.dash._dev_tools.prune_errors = True
 
                 self.dash.layout = html.Div(
                     [
