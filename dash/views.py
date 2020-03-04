@@ -34,8 +34,9 @@ class MetaDashView(type):
     def __new__(cls, name, bases, attrs):
         new_cls = super(MetaDashView, cls).__new__(cls, name, bases, attrs)
 
-        if new_cls.__dict__.get('dash_name', ''):
-            new_cls._dashes[new_cls.__dict__['dash_name']] = new_cls   # pylint: disable=protected-access
+        dash_name = new_cls.__dict__.get('dash_name', getattr(new_cls, 'dash_name', ''))
+        if dash_name:
+            new_cls._dashes[dash_name] = new_cls   # pylint: disable=protected-access
             dash_prefix = getattr(new_cls, 'dash_prefix', '').strip()
             if dash_prefix:
                 # pylint: disable=protected-access
