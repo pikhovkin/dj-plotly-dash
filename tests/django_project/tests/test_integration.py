@@ -943,6 +943,8 @@ class Tests(IntegrationTests):
 
     def test_wrong_callback_id(self):
         class Dash(DashView):
+            dash_suppress_callback_exceptions = False
+
             def __init__(self, **kwargs):
                 super(Dash, self).__init__(**kwargs)
 

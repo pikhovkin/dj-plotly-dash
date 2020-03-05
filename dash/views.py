@@ -78,6 +78,8 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
         dash_assets_ignore = kwargs.pop('dash_assets_ignore', self.dash_assets_ignore)
         dash_serve_dev_bundles = kwargs.pop('dash_serve_dev_bundles', self.dash_serve_dev_bundles)
         dash_hot_reload = kwargs.pop('dash_hot_reload', self.dash_hot_reload)
+        dash_suppress_callback_exceptions = kwargs.pop('dash_suppress_callback_exceptions',
+                                                       self.dash_suppress_callback_exceptions)
 
         super(BaseDashView, self).__init__(**kwargs)
 
@@ -113,6 +115,8 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
             self.dash._dev_tools.serve_dev_bundles = dash_serve_dev_bundles
         if self.dash._dev_tools.hot_reload != dash_hot_reload:
             self.dash._dev_tools.hot_reload = dash_hot_reload
+        if self.dash.config.suppress_callback_exceptions is not dash_suppress_callback_exceptions:
+            self.dash.config.suppress_callback_exceptions = dash_suppress_callback_exceptions
 
         self.dash.components = set(self.dash_components or [])
         self.dash._reload_hash = self._dash_hot_reload_hash  # pylint: disable=no-member
