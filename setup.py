@@ -4,9 +4,17 @@ from setuptools import setup, find_packages
 main_ns = {}
 exec(open('dash/version.py').read(), main_ns)  # pylint: disable=exec-used
 
+
+def read_req_file(req_type):
+    with open("requires-{}.txt".format(req_type)) as fp:
+        requires = (line.strip() for line in fp)
+        return [req for req in requires if req and not req.startswith("#")]
+
+
 general_requires = [
     'Django>=1.9,<2.3',
-    'plotly>=2.0.8'
+    'plotly>=2.0.8',
+    'future',
 ]
 
 setup(
@@ -22,21 +30,23 @@ setup(
     long_description=io.open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
     install_requires=[],
+    python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*",
     extras_require={
         'all': general_requires + ['dash_renderer==1.0.0'],
         'no-dash-renderer': general_requires
     },
     entry_points={
         "console_scripts": [
-            "dash-generate-components=dash.development.component_generator:cli",
-            "renderer=dash.development.build_process:renderer",
+            "dash-generate-components = "
+            "dash.development.component_generator:cli",
+            "renderer = dash.development.build_process:renderer",
         ],
-        "pytest11": ["dash = dash.testing.plugin"],
     },
     url='https://github.com/pikhovkin/dj-plotly-dash',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Environment :: Web Environment',
+        'Framework :: Dash',
         'Framework :: Django',
         'Framework :: Django :: 1.9',
         'Framework :: Django :: 1.10',
@@ -65,5 +75,5 @@ setup(
         'Topic :: Scientific/Engineering :: Visualization',
         'Topic :: Software Development :: Libraries :: Application Frameworks',
         'Topic :: Software Development :: Widget Sets'
-    ]
+    ],
 )

@@ -68,6 +68,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
     dash_serve_dev_bundles = False
     dash_components = None
     dash_hot_reload = None
+    dash_suppress_callback_exceptions = True
 
     def __init__(self, **kwargs):
         dash_base_url = kwargs.pop('dash_base_url', self.dash_base_url)
@@ -119,6 +120,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
             self.dash.config.suppress_callback_exceptions = dash_suppress_callback_exceptions
 
         self.dash.components = set(self.dash_components or [])
+        # self.dash.dash_name = self.dash_name
         self.dash._reload_hash = self._dash_hot_reload_hash  # pylint: disable=no-member
 
     def get(self, request, *args, **kwargs):

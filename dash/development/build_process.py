@@ -64,12 +64,11 @@ class BuildProcess(object):
         for path in self.asset_paths:
             self._clean_path(path)
 
-    @job("run `npm i --ignore-scripts`")
+    @job("run `npm ci`")
     def npm(self):
-        """job to install npm packages"""
+        """Job to install npm packages."""
         os.chdir(self.main)
-        self._clean_path(self.package_lock)
-        run_command_with_process("npm i --ignore-scripts")
+        run_command_with_process("npm ci")
 
     @job("build the renderer in dev mode")
     def watch(self):
@@ -77,10 +76,10 @@ class BuildProcess(object):
         os.system("npm run build:dev")
 
     @job("run the whole building process in sequence")
-    def build(self):
+    def build(self, build=None):
         self.clean()
         self.npm()
-        self.bundles()
+        self.bundles(build)
         self.digest()
 
     @job("compute the hash digest for assets")
@@ -108,7 +107,7 @@ class BuildProcess(object):
         )
 
     @job("copy and generate the bundles")
-    def bundles(self):
+    def bundles(self, build=None):
         if not os.path.exists(self.build_folder):
             try:
                 os.makedirs(self.build_folder)
@@ -126,8 +125,8 @@ class BuildProcess(object):
             "version": self.version,
             "package": self.name.replace(" ", "_").replace("-", "_"),
         }
-        for name, subfolder, filename, target in self.deps_info:
-            version = self.deps[name]["version"]
+        for scope, name, subfolder, filename, target in self.deps_info:
+            version = self.deps["/".join(filter(None, [scope, name]))]["version"]
             versions[name.replace("-", "").replace(".", "")] = version
 
             logger.info("copy npm dependency => %s", filename)
@@ -138,15 +137,16 @@ class BuildProcess(object):
                 else "{}@{}.{}".format(name, version, ext)
             )
             shutil.copyfile(
-                self._concat(self.npm_modules, name, subfolder, filename),
+                self._concat(self.npm_modules, scope, name, subfolder, filename),
                 self._concat(self.build_folder, target),
             )
 
-        logger.info("run `npm run build:js`")
+        _script = 'build:dev' if build == 'local' else 'build:js'
+        logger.info("run `npm run %s`", _script)
         os.chdir(self.main)
-        run_command_with_process("npm run build:js")
+        run_command_with_process("npm run {}".format(_script))
 
-        logger.info("generate the `__init__.py` from template and verisons")
+        logger.info("generate the `__init__.py` from template and versions")
         with open(self._concat(self.main, "init.template")) as fp:
             t = string.Template(fp.read())
 
@@ -156,7 +156,7 @@ class BuildProcess(object):
 
 class Renderer(BuildProcess):
     def __init__(self):
-        # dash-renderer's path is binding with the dash folder hierarchy
+        """dash-renderer's path is binding with the dash folder hierarchy."""
         super(Renderer, self).__init__(
             self._concat(
                 os.path.dirname(__file__),
@@ -165,12 +165,13 @@ class Renderer(BuildProcess):
                 "dash-renderer",
             ),
             (
-                ("react", "umd", "react.production.min.js", None),
-                ("react", "umd", "react.development.js", None),
-                ("react-dom", "umd", "react-dom.production.min.js", None),
-                ("react-dom", "umd", "react-dom.development.js", None),
-                ("prop-types", None, "prop-types.min.js", None),
-                ("prop-types", None, "prop-types.js", None),
+                ("@babel", "polyfill", "dist", "polyfill.min.js", None),
+                (None, "react", "umd", "react.production.min.js", None),
+                (None, "react", "umd", "react.development.js", None),
+                (None, "react-dom", "umd", "react-dom.production.min.js", None),
+                (None, "react-dom", "umd", "react-dom.development.js", None),
+                (None, "prop-types", None, "prop-types.min.js", None),
+                (None, "prop-types", None, "prop-types.js", None),
             ),
         )
 

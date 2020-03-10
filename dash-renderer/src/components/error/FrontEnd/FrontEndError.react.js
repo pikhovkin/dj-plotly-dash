@@ -6,7 +6,7 @@ import PropTypes from 'prop-types';
 import '../Percy.css';
 import {urlBase} from '../../../utils';
 
-import werkzeugCss from '../werkzeug.css.txt';
+import werkzeugCss from '../werkzeugcss';
 
 class FrontEndError extends Component {
     constructor(props) {
@@ -17,19 +17,12 @@ class FrontEndError extends Component {
     }
 
     render() {
-        const {e, resolve, inAlertsTray} = this.props;
+        const {e, inAlertsTray} = this.props;
         const {collapsed} = this.state;
 
-        let cardClasses;
-        // if resolve is defined, the error should be a standalone card
-        if (resolve) {
-            cardClasses = 'dash-error-card';
-        } else {
-            cardClasses = 'dash-error-card__content';
-        }
-        if (inAlertsTray) {
-            cardClasses += ' dash-error-card--alerts-tray';
-        }
+        const cardClasses =
+            'dash-error-card__content' +
+            (inAlertsTray ? ' dash-error-card--alerts-tray' : '');
 
         /* eslint-disable no-inline-comments */
         const errorHeader = (
@@ -115,7 +108,9 @@ function UnconnectedErrorContent({error, base}) {
                 </div>
             )}
             {/* Backend Error */}
-            {typeof error.html !== 'string' ? null : (
+            {typeof error.html !== 'string' ? null : error.html.indexOf(
+                  '<!DOCTYPE HTML'
+              ) === 0 ? (
                 <div className="dash-be-error__st">
                     <div className="dash-backend-error">
                         {/* Embed werkzeug debugger in an iframe to prevent
@@ -147,6 +142,10 @@ function UnconnectedErrorContent({error, base}) {
                         />
                     </div>
                 </div>
+            ) : (
+                <div className="dash-be-error__str">
+                    <div className="dash-backend-error">{error.html}</div>
+                </div>
             )}
         </div>
     );
@@ -174,11 +173,9 @@ const ErrorContent = connect(state => ({base: urlBase(state.config)}))(
 
 FrontEndError.propTypes = {
     e: PropTypes.shape({
-        myUID: PropTypes.string,
         timestamp: PropTypes.object,
         error: errorPropTypes,
     }),
-    resolve: PropTypes.func,
     inAlertsTray: PropTypes.bool,
     isListItem: PropTypes.bool,
 };

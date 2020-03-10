@@ -4,24 +4,27 @@ import {
     any,
     append,
     concat,
-    contains,
     findIndex,
     findLastIndex,
     flatten,
     flip,
     has,
+    includes,
     intersection,
     isEmpty,
     keys,
     lensPath,
     mergeLeft,
     mergeDeepRight,
+    once,
+    path,
     pluck,
     propEq,
     reject,
     slice,
     sort,
     type,
+    uniq,
     view,
 } from 'ramda';
 import {createAction} from 'redux-actions';
@@ -31,17 +34,19 @@ import {getAction} from './constants';
 import cookie from 'cookie';
 import {uid, urlBase, isMultiOutputProp, parseMultipleOutputs} from '../utils';
 import {STATUS} from '../constants/constants';
+import {applyPersistence, prunePersistence} from '../persistence';
+
+import isAppReady from './isAppReady';
 
 export const updateProps = createAction(getAction('ON_PROP_CHANGE'));
 export const setRequestQueue = createAction(getAction('SET_REQUEST_QUEUE'));
 export const computeGraphs = createAction(getAction('COMPUTE_GRAPHS'));
 export const computePaths = createAction(getAction('COMPUTE_PATHS'));
-export const setLayout = createAction(getAction('SET_LAYOUT'));
 export const setAppLifecycle = createAction(getAction('SET_APP_LIFECYCLE'));
 export const setConfig = createAction(getAction('SET_CONFIG'));
 export const setHooks = createAction(getAction('SET_HOOKS'));
+export const setLayout = createAction(getAction('SET_LAYOUT'));
 export const onError = createAction(getAction('ON_ERROR'));
-export const resolveError = createAction(getAction('RESOLVE_ERROR'));
 
 export function hydrateInitialOutputs() {
     return function(dispatch, getState) {
@@ -50,10 +55,18 @@ export function hydrateInitialOutputs() {
     };
 }
 
+/* eslint-disable-next-line no-console */
+const logWarningOnce = once(console.warn);
+
 export function getCSRFHeader() {
-    return {
-        'X-CSRFToken': cookie.parse(document.cookie)._csrf_token,
-    };
+    try {
+        return {
+            'X-CSRFToken': cookie.parse(document.cookie)._csrf_token,
+        };
+    } catch (e) {
+        logWarningOnce(e);
+        return {};
+    }
 }
 
 function triggerDefaultState(dispatch, getState) {
@@ -174,7 +187,7 @@ function reduceInputIds(nodeIds, InputGraph) {
     /*
      * Create input-output(s) pairs,
      * sort by number of outputs,
-     * and remove redudant inputs (inputs that update the same output)
+     * and remove redundant inputs (inputs that update the same output)
      */
     const inputOutputPairs = nodeIds.map(nodeId => ({
         input: nodeId,
@@ -193,7 +206,7 @@ function reduceInputIds(nodeIds, InputGraph) {
      * trigger components to update multiple times.
      *
      * For example, [A, B] => C and [A, D] => E
-     * The unique inputs might be [A, B, D] but that is redudant.
+     * The unique inputs might be [A, B, D] but that is redundant.
      * We only need to update B and D or just A.
      *
      * In these cases, we'll supply an additional list of outputs
@@ -204,7 +217,7 @@ function reduceInputIds(nodeIds, InputGraph) {
             pluck('outputs', slice(0, i, sortedInputOutputPairs))
         );
         pair.outputs.forEach(output => {
-            if (contains(output, outputsThatWillBeUpdated)) {
+            if (includes(output, outputsThatWillBeUpdated)) {
                 pair.excludedOutputs.push(output);
             }
         });
@@ -214,10 +227,17 @@ function reduceInputIds(nodeIds, InputGraph) {
 }
 
 export function notifyObservers(payload) {
-    return function(dispatch, getState) {
+    return async function(dispatch, getState) {
         const {id, props, excludedOutputs} = payload;
 
-        const {graphs, requestQueue} = getState();
+        const {
+            dependenciesRequest,
+            graphs,
+            layout,
+            paths,
+            requestQueue,
+        } = getState();
+
         const {InputGraph} = graphs;
         /*
          * Figure out all of the output id's that depend on this input.
@@ -242,7 +262,7 @@ export function notifyObservers(payload) {
                  * We only need to update the output once for this
                  * update, so keep outputObservers unique.
                  */
-                if (!contains(outputId, outputObservers)) {
+                if (!includes(outputId, outputObservers)) {
                     outputObservers.push(outputId);
                 }
             });
@@ -250,7 +270,7 @@ export function notifyObservers(payload) {
 
         if (excludedOutputs) {
             outputObservers = reject(
-                flip(contains)(excludedOutputs),
+                flip(includes)(excludedOutputs),
                 outputObservers
             );
         }
@@ -321,7 +341,7 @@ export function notifyObservers(payload) {
              */
             const controllerIsInExistingQueue = any(
                 r =>
-                    contains(r.controllerId, controllers) &&
+                    includes(r.controllerId, controllers) &&
                     r.status === 'loading',
                 requestQueue
             );
@@ -355,6 +375,30 @@ export function notifyObservers(payload) {
                 queuedObservers.push(outputIdAndProp);
             }
         });
+
+        /**
+         * Determine the id of all components used as input or state in the callbacks
+         * triggered by the props change.
+         *
+         * Wait for all components associated to these ids to be ready before initiating
+         * the callbacks.
+         */
+        const deps = queuedObservers.map(output =>
+            dependenciesRequest.content.find(
+                dependency => dependency.output === output
+            )
+        );
+
+        const ids = uniq(
+            flatten(
+                deps.map(dep => [
+                    dep.inputs.map(input => input.id),
+                    dep.state.map(state => state.id),
+                ])
+            )
+        );
+
+        await isAppReady(layout, paths, ids);
 
         /*
          * record the set of output IDs that will eventually need to be
@@ -466,7 +510,7 @@ function updateOutput(
 
     payload.inputs = inputs.map(inputObject => {
         // Make sure the component id exists in the layout
-        if (!contains(inputObject.id, validKeys)) {
+        if (!includes(inputObject.id, validKeys)) {
             throw new ReferenceError(
                 'An invalid input object was used in an ' +
                     '`Input` of a Dash callback. ' +
@@ -496,13 +540,13 @@ function updateOutput(
     const inputsPropIds = inputs.map(p => `${p.id}.${p.property}`);
 
     payload.changedPropIds = changedPropIds.filter(p =>
-        contains(p, inputsPropIds)
+        includes(p, inputsPropIds)
     );
 
     if (state.length > 0) {
         payload.state = state.map(stateObject => {
             // Make sure the component id exists in the layout
-            if (!contains(stateObject.id, validKeys)) {
+            if (!includes(stateObject.id, validKeys)) {
                 throw new ReferenceError(
                     'An invalid input object was used in a ' +
                         '`State` object of a Dash callback. ' +
@@ -530,9 +574,61 @@ function updateOutput(
         });
     }
 
+    function doUpdateProps(id, updatedProps) {
+        const {layout, paths} = getState();
+        const itempath = paths[id];
+        if (!itempath) {
+            return false;
+        }
+
+        // This is a callback-generated update.
+        // Check if this invalidates existing persisted prop values,
+        // or if persistence changed, whether this updates other props.
+        const updatedProps2 = prunePersistence(
+            path(itempath, layout),
+            updatedProps,
+            dispatch
+        );
+
+        // In case the update contains whole components, see if any of
+        // those components have props to update to persist user edits.
+        const {props} = applyPersistence({props: updatedProps2}, dispatch);
+
+        dispatch(
+            updateProps({
+                itempath,
+                props,
+                source: 'response',
+            })
+        );
+
+        return props;
+    }
+
     // Clientside hook
     if (clientside_function) {
         let returnValue;
+
+        /*
+         * Create the dash_clientside namespace if it doesn't exist and inject
+         * no_update and PreventUpdate.
+         */
+        if (!window.dash_clientside) {
+            window.dash_clientside = {};
+        }
+
+        if (!window.dash_clientside.no_update) {
+            Object.defineProperty(window.dash_clientside, 'no_update', {
+                value: {description: 'Return to prevent updating an Output.'},
+                writable: false,
+            });
+
+            Object.defineProperty(window.dash_clientside, 'PreventUpdate', {
+                value: {description: 'Throw to prevent updating all Outputs.'},
+                writable: false,
+            });
+        }
+
         try {
             returnValue = window.dash_clientside[clientside_function.namespace][
                 clientside_function.function_name
@@ -541,6 +637,14 @@ function updateOutput(
                 ...(has('state', payload) ? pluck('value', payload.state) : [])
             );
         } catch (e) {
+            /*
+             * Prevent all updates.
+             */
+            if (e === window.dash_clientside.PreventUpdate) {
+                updateRequestQueue(true, STATUS.PREVENT_UPDATE);
+                return;
+            }
+
             /* eslint-disable no-console */
             console.error(
                 `The following error occurred while executing ${clientside_function.namespace}.${clientside_function.function_name} ` +
@@ -582,29 +686,32 @@ function updateOutput(
 
             /*
              * Update the request queue by treating a successful clientside
-             * like a succesful serverside response (200 status code)
+             * like a successful serverside response (200 status code)
              */
             updateRequestQueue(false, STATUS.OK);
 
+            /*
+             * Prevent update.
+             */
+            if (outputValue === window.dash_clientside.no_update) {
+                return;
+            }
+
             // Update the layout with the new result
-            dispatch(
-                updateProps({
-                    itempath: getState().paths[outputId],
-                    props: updatedProps,
-                    source: 'response',
-                })
-            );
+            const appliedProps = doUpdateProps(outputId, updatedProps);
 
             /*
              * This output could itself be a serverside or clientside input
              * to another function
              */
-            dispatch(
-                notifyObservers({
-                    id: outputId,
-                    props: updatedProps,
-                })
-            );
+            if (appliedProps) {
+                dispatch(
+                    notifyObservers({
+                        id: outputId,
+                        props: appliedProps,
+                    })
+                );
+            }
         }
 
         if (isMultiOutputProp(payload.output)) {
@@ -717,20 +824,16 @@ function updateOutput(
                 const handleResponse = ([outputIdAndProp, props]) => {
                     // Backward compatibility
                     const pathKey = multi ? outputIdAndProp : outputComponentId;
-                    const observerUpdatePayload = {
-                        itempath: getState().paths[pathKey],
-                        props,
-                        source: 'response',
-                    };
-                    if (!observerUpdatePayload.itempath) {
+
+                    const appliedProps = doUpdateProps(pathKey, props);
+                    if (!appliedProps) {
                         return;
                     }
-                    dispatch(updateProps(observerUpdatePayload));
 
                     dispatch(
                         notifyObservers({
                             id: pathKey,
-                            props: props,
+                            props: appliedProps,
                         })
                     );
 
@@ -739,10 +842,11 @@ function updateOutput(
                      * paths store.
                      * TODO - Do we need to wait for updateProps to finish?
                      */
-                    if (has('children', observerUpdatePayload.props)) {
+                    if (has('children', appliedProps)) {
+                        const newChildren = appliedProps.children;
                         dispatch(
                             computePaths({
-                                subTree: observerUpdatePayload.props.children,
+                                subTree: newChildren,
                                 startingPath: concat(
                                     getState().paths[pathKey],
                                     ['props', 'children']
@@ -756,11 +860,8 @@ function updateOutput(
                          * new children components
                          */
                         if (
-                            contains(
-                                type(observerUpdatePayload.props.children),
-                                ['Array', 'Object']
-                            ) &&
-                            !isEmpty(observerUpdatePayload.props.children)
+                            includes(type(newChildren), ['Array', 'Object']) &&
+                            !isEmpty(newChildren)
                         ) {
                             /*
                              * TODO: We're just naively crawling
@@ -770,32 +871,27 @@ function updateOutput(
                              * to compute the subtree
                              */
                             const newProps = {};
-                            crawlLayout(
-                                observerUpdatePayload.props.children,
-                                function appendIds(child) {
-                                    if (hasId(child)) {
-                                        keys(child.props).forEach(childProp => {
-                                            const componentIdAndProp = `${child.props.id}.${childProp}`;
-                                            if (
-                                                has(
-                                                    componentIdAndProp,
-                                                    InputGraph.nodes
-                                                )
-                                            ) {
-                                                newProps[componentIdAndProp] = {
-                                                    id: child.props.id,
-                                                    props: {
-                                                        [childProp]:
-                                                            child.props[
-                                                                childProp
-                                                            ],
-                                                    },
-                                                };
-                                            }
-                                        });
-                                    }
+                            crawlLayout(newChildren, function appendIds(child) {
+                                if (hasId(child)) {
+                                    keys(child.props).forEach(childProp => {
+                                        const componentIdAndProp = `${child.props.id}.${childProp}`;
+                                        if (
+                                            has(
+                                                componentIdAndProp,
+                                                InputGraph.nodes
+                                            )
+                                        ) {
+                                            newProps[componentIdAndProp] = {
+                                                id: child.props.id,
+                                                props: {
+                                                    [childProp]:
+                                                        child.props[childProp],
+                                                },
+                                            };
+                                        }
+                                    });
                                 }
-                            );
+                            });
 
                             /*
                              * Organize props by shared outputs so that we

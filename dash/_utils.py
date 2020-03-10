@@ -9,8 +9,8 @@ import subprocess
 import logging
 from io import open  # pylint: disable=redefined-builtin
 from functools import wraps
-
-import six
+import future.utils as utils
+from . import exceptions
 
 logger = logging.getLogger()
 
@@ -55,16 +55,56 @@ def get_asset_path(requests_pathname, asset_path, asset_url_path):
     )
 
 
+def get_relative_path(requests_pathname, path):
+    if requests_pathname == '/' and path == '':
+        return '/'
+    elif requests_pathname != '/' and path == '':
+        return requests_pathname
+    elif not path.startswith('/'):
+        raise exceptions.UnsupportedRelativePath(
+            "Paths that aren't prefixed with a leading / are not supported.\n" +
+            "You supplied: {}".format(path)
+        )
+    return "/".join(
+        [
+            requests_pathname.rstrip("/"),
+            path.lstrip("/")
+        ]
+    )
+
+def strip_relative_path(requests_pathname, path):
+    if path is None:
+        return None
+    elif ((requests_pathname != '/' and
+            not path.startswith(requests_pathname.rstrip('/')))
+            or (requests_pathname == '/' and not path.startswith('/'))):
+        raise exceptions.UnsupportedRelativePath(
+            "Paths that aren't prefixed with a leading " +
+            "requests_pathname_prefix are not supported.\n" +
+            "You supplied: {} and requests_pathname_prefix was {}".format(
+                path,
+                requests_pathname
+            )
+        )
+    if (requests_pathname != '/' and
+            path.startswith(requests_pathname.rstrip('/'))):
+        path = path.replace(
+            # handle the case where the path might be `/my-dash-app`
+            # but the requests_pathname_prefix is `/my-dash-app/`
+            requests_pathname.rstrip('/'),
+            '',
+            1
+        )
+    return path.strip('/')
+
+
 # pylint: disable=no-member
 def patch_collections_abc(member):
-    if six.PY2:
-        return getattr(collections, member)
-    return getattr(collections.abc, member)
+    return getattr(collections if utils.PY2 else collections.abc, member)
 
 
 class AttributeDict(dict):
-    """
-    Dictionary subclass enabling attribute lookup/assignment of keys/values.
+    """Dictionary subclass enabling attribute lookup/assignment of keys/values.
 
     For example::
         >>> m = AttributeDict({'foo': 'bar'})
@@ -98,7 +138,7 @@ class AttributeDict(dict):
         object.__setattr__(self, "_read_only_msg", msg)
 
     def finalize(self, msg="Object is final: No new keys may be added."):
-        """Prevent any new keys being set"""
+        """Prevent any new keys being set."""
         object.__setattr__(self, "_final", msg)
 
     def __setitem__(self, key, val):
@@ -132,7 +172,8 @@ def create_callback_id(output):
 
 
 def run_command_with_process(cmd):
-    proc = subprocess.Popen(shlex.split(cmd, posix=sys.platform != "win32"))
+    is_win = sys.platform == "win32"
+    proc = subprocess.Popen(shlex.split(cmd, posix=is_win), shell=is_win)
     proc.wait()
     if proc.poll() is None:
         logger.warning("🚨 trying to terminate subprocess in safe way")
@@ -145,8 +186,8 @@ def run_command_with_process(cmd):
 
 
 def compute_md5(path):
-    with open(path, encoding='utf-8') as fp:
-        return hashlib.md5(fp.read().encode('utf-8')).hexdigest()
+    with open(path, encoding="utf-8") as fp:
+        return hashlib.md5(fp.read().encode("utf-8")).hexdigest()
 
 
 def job(msg=""):
@@ -157,5 +198,7 @@ def job(msg=""):
             res = func(*args, **kwargs)
             logger.info("::: 🍻🍻🍻 [%s] job done 🍻🍻🍻 :::", func.__name__)
             return res
+
         return _wrapper
+
     return wrapper
