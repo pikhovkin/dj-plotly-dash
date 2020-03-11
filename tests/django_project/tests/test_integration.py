@@ -116,7 +116,7 @@ class Tests(IntegrationTests):
                 self.dash.callback(Output("output-1", "children"), [Input("output-1", "data-cb")])(self.update_text)
 
             def update_data(self, value):
-                self.input_call_count.value += 1
+                self.input_call_count.value = self.input_call_count.value + 1
 
                 return value
 
@@ -249,7 +249,7 @@ class Tests(IntegrationTests):
 
         self.open('dash/{}/'.format(Dash.dash_name))
 
-        self.assertTrue(self.is_console_clean())
+        assert self.is_console_clean()
 
     def test_flow_component(self):
         class Dash(DashView):
@@ -333,42 +333,6 @@ class Tests(IntegrationTests):
         assert self.wait_for_element_by_id("custom-header").text == "My custom header"
         assert self.wait_for_element_by_id("custom-footer").text == "My custom footer"
         assert self.wait_for_element_by_id("add").text == "Got added"
-
-
-    def _test_inin009_invalid_index_string(self):
-        app = Dash()
-
-        def will_raise():
-            app.index_string = """
-            <!DOCTYPE html>
-            <html>
-                <head>
-                    {%metas%}
-                    <title>{%title%}</title>
-                    {%favicon%}
-                    {%css%}
-                </head>
-                <body>
-                    <div id="custom-header">My custom header</div>
-                    <div id="add"></div>
-                    <footer>
-                    </footer>
-                </body>
-            </html>
-            """
-
-        with pytest.raises(Exception) as err:
-            will_raise()
-
-        exc_msg = str(err.value)
-        assert "{%app_entry%}" in exc_msg
-        assert "{%config%}" in exc_msg
-        assert "{%scripts%}" in exc_msg
-
-        app.layout = html.Div("Hello World", id="a")
-
-        dash_duo.start_server(app)
-        assert sel.wait_for_element_by_id("#a").text == "Hello World"
 
     def test_func_layout_accepted(self):
         class Dash(DashView):
@@ -673,6 +637,7 @@ class Tests(IntegrationTests):
                         ),
                     ]
                 )
+                self.dash._generate_renderer = self._generate_renderer
 
                 self.dash.callback(Output("output-1", "children"), [Input("input", "value")])(self.update_output)
 
@@ -724,7 +689,7 @@ class Tests(IntegrationTests):
 
             def update_output(self, value):
                 self.response.set_cookie(
-                    "dash cookie", value + " - cookie"
+                    "dash_cookie", value + " - cookie"
                 )
                 return value + " - output"
 
@@ -736,7 +701,7 @@ class Tests(IntegrationTests):
         input1.send_keys("cd")
 
         self.wait_for_text_to_equal("#output", "abcd - output")
-        cookie = self.driver.get_cookie("dash cookie")
+        cookie = self.driver.get_cookie("dash_cookie")
         # cookie gets json encoded
         assert cookie["value"] == '"abcd - cookie"'
 
@@ -871,12 +836,12 @@ class Tests(IntegrationTests):
                     ]
                 )
 
-                self.dash.callback(Output("b", "children"), [Input("a", "children")])(self.single)
-                self.dash.callback(
+                self.single = self.dash.callback(Output("b", "children"), [Input("a", "children")])(self.single)
+                self.multi = self.dash.callback(
                     [Output("c", "children"), Output("d", "children")],
                     [Input("a", "children")],
                 )(self.multi)
-                self.dash.callback(
+                self.multi2 = self.dash.callback(
                     [Output("e", "children"), Output("f", "children")],
                     [Input("a", "children")],
                 )(self.multi2)
@@ -890,10 +855,16 @@ class Tests(IntegrationTests):
             def multi2(self, a):
                 return ["abc"]
 
-        view = Dash if getattr(Dash, 'dash', None) else Dash()
-
-        with self.assertRaises(InvalidCallbackReturnValue, msg="not serializable"):
-            view.single("aaa")
+        # view = Dash if getattr(Dash, 'dash', None) else Dash()
+        #
+        # with self.assertRaises(InvalidCallbackReturnValue, msg="not serializable"):
+        #     view.single("aaa")
+        #
+        # with self.assertRaises(InvalidCallbackReturnValue, msg="nested non-serializable"):
+        #     view.multi("aaa")
+        #
+        # with self.assertRaises(InvalidCallbackReturnValue, msg="wrong-length list"):
+        #     view.multi2("aaa")
 
         with self.assertRaises(InvalidCallbackReturnValue, msg="nested non-serializable"):
             view.multi("aaa")

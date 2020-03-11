@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import json
+from textwrap import dedent
 
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -156,7 +157,9 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
             self.response.content = JsonResponse(response).content
         except TypeError:
             self.dash._validate_callback_output(output_value, output)  # pylint: disable=protected-access
-            raise exceptions.InvalidCallbackReturnValue('''
+            raise exceptions.InvalidCallbackReturnValue(
+                dedent(
+                    """
             The callback for property `{property:s}`
             of component `{id:s}` returned a value
             which is not JSON serializable.
@@ -164,10 +167,12 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
             In general, Dash properties can only be
             dash components, strings, dictionaries, numbers, None,
             or lists of those.
-            '''.format(
-                property=output.component_property,
-                id=output.component_id
-            ).replace('    ', ''))
+            """
+                ).format(
+                    property=output.component_property,
+                    id=output.component_id,
+                )
+            )
 
         return self.response
 
