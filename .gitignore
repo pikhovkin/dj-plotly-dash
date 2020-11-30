@@ -65,3 +65,5 @@ npm-debug*
 dash_renderer/
 digest.json
 VERSION.txt
+
+tests/dj_project/static/

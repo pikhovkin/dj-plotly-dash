@@ -26,7 +26,7 @@ from .resources import Scripts, Css
 from .development.base_component import Component
 from . import exceptions
 from ._utils import AttributeDict as _AttributeDict
-from ._utils import format_tag as _format_tag
+from ._utils import format_tag as _format_tag, generate_hash
 from ._utils import patch_collections_abc as _patch_collections_abc
 from ._utils import create_callback_id as _create_callback_id
 from .version import __version__
@@ -306,7 +306,7 @@ class Dash(object):
 
         hard = _reload.hard
         changed = _reload.changed_assets
-        _hash = _reload.hash
+        _hash = generate_hash()
         return {
             'reloadHash': _hash,
             'hard': hard,
@@ -1187,9 +1187,8 @@ class Dash(object):
         return res
 
     def _walk_assets_directory(self):
-        ignore_filter = [self.config.assets_ignore] if self.config.assets_ignore else None
-
-        files = list(get_files(staticfiles_storage, ignore_patterns=ignore_filter,
+        ignore_patterns = [self.config.assets_ignore] if self.config.assets_ignore else None
+        files = list(get_files(staticfiles_storage, ignore_patterns=ignore_patterns,
                                location=self.config.assets_folder))
         for f in sorted(files):
             path = staticfiles_storage.url(f)

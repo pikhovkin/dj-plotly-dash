@@ -57,7 +57,7 @@ class MetaDashView(type):
 class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
     _dashes = {}
 
-    template_name = 'base.html'
+    template_name = 'dash/base.html'
     dash_base_url = '/'
     dash_name = None
     dash_meta_tags = None

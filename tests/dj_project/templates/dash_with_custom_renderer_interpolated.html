@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>My App</title>
+    </head>
+    <body>
+
+        <div id="custom-header">My custom header</div>
+        {{ app_entry }}
+        {{ config }}
+        {{ scripts }}
+        <script id="_dash-renderer" type="application/javascript">
+            console.log('firing up a custom renderer!')
+            const renderer = new DashRenderer({
+                request_pre: () => {
+                    var output = document.getElementById('output-pre')
+                    if(output) {
+                        output.innerHTML = 'request_pre was here!';
+                    }
+                },
+                request_post: () => {
+                    var output = document.getElementById('output-post')
+                    if(output) {
+                        output.innerHTML = 'request_post!!!';
+                    }
+                }
+            })
+        </script>
+        <div id="custom-footer">My custom footer</div>
+    </body>
+</html>

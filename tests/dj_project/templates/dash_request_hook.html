@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        {{ metas }}
+        <title>{{ title }}</title>
+        {{ favicon }}
+        {{ css }}
+    </head>
+    <body>
+        <div>Testing custom DashRenderer</div>
+        {{ app_entry }}
+        <footer>
+            {{ config }}
+            {{ scripts }}
+            <script id="_dash-renderer" type"application/json">
+                const renderer = new DashRenderer({
+                    request_pre: (payload) => {
+                        var output = document.getElementById('output-pre')
+                        var outputPayload = document.getElementById('output-pre-payload')
+                        if(output) {
+                            output.innerHTML = 'request_pre changed this text!';
+                        }
+                        if(outputPayload) {
+                            outputPayload.innerHTML = JSON.stringify(payload);
+                        }
+                    },
+                    request_post: (payload, response) => {
+                        var output = document.getElementById('output-post')
+                        var outputPayload = document.getElementById('output-post-payload')
+                        var outputResponse = document.getElementById('output-post-response')
+                        if(output) {
+                            output.innerHTML = 'request_post changed this text!';
+                        }
+                        if(outputPayload) {
+                            outputPayload.innerHTML = JSON.stringify(payload);
+                        }
+                        if(outputResponse) {
+                            outputResponse.innerHTML = JSON.stringify(response);
+                        }
+                    }
+                })
+            </script>
+        </footer>
+        <div>With request hooks</div>
+    </body>
+</html>
