@@ -1,4 +1,7 @@
-include README.md
-include LICENSE
+recursive-include dash/templates *
 include dash/favicon.ico
 include dash/extract-meta.js
+include README.md
+include LICENSE
+global-exclude __pycache__
+global-exclude *.py[co]

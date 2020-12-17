@@ -9,7 +9,8 @@ class FrontEndErrorContainer extends Component {
     }
 
     render() {
-        const errorsLength = this.props.errors.length;
+        const {errors, connected} = this.props;
+        const errorsLength = errors.length;
         if (errorsLength === 0) {
             return null;
         }
@@ -17,7 +18,7 @@ class FrontEndErrorContainer extends Component {
         const inAlertsTray = this.props.inAlertsTray;
         let cardClasses = 'dash-error-card dash-error-card--container';
 
-        const errorElements = this.props.errors.map((error, i) => {
+        const errorElements = errors.map((error, i) => {
             return <FrontEndError e={error} isListItem={true} key={i} />;
         });
         if (inAlertsTray) {
@@ -25,16 +26,16 @@ class FrontEndErrorContainer extends Component {
         }
         return (
             <div className={cardClasses}>
-                <div className="dash-error-card__topbar">
-                    <div className="dash-error-card__message">
+                <div className='dash-error-card__topbar'>
+                    <div className='dash-error-card__message'>
                         🛑 Errors (
-                        <strong className="test-devtools-error-count">
+                        <strong className='test-devtools-error-count'>
                             {errorsLength}
                         </strong>
-                        )
+                        ){connected ? null : '\u00a0 🚫 Server Unavailable'}
                     </div>
                 </div>
-                <div className="dash-error-card__list">{errorElements}</div>
+                <div className='dash-error-card__list'>{errorElements}</div>
             </div>
         );
     }
@@ -42,11 +43,12 @@ class FrontEndErrorContainer extends Component {
 
 FrontEndErrorContainer.propTypes = {
     errors: PropTypes.array,
-    inAlertsTray: PropTypes.any,
+    connected: PropTypes.bool,
+    inAlertsTray: PropTypes.any
 };
 
 FrontEndErrorContainer.propTypes = {
-    inAlertsTray: PropTypes.any,
+    inAlertsTray: PropTypes.any
 };
 
 export {FrontEndErrorContainer};

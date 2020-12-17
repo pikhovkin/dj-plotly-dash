@@ -44,16 +44,6 @@ jobs:
               . venv/bin/activate
               tox tox.ini -e $TOX
 
-  "python-3.6":
-    <<: *test-template
-    docker:
-      - image: circleci/python:3.6-stretch-browsers
-        environment:
-          REQUIREMENTS_FILE: dev-requirements.txt
-          PYLINTRC: .pylintrc
-          TOX: py36,py36-dj{109,110,111,200,201}
-          TOX_PYTHON_36: python
-
   "python-3.7":
     <<: *test-template
     docker:
@@ -61,13 +51,37 @@ jobs:
       environment:
         REQUIREMENTS_FILE: dev-requirements.txt
         PYLINTRC37: .pylintrc37
-        TOX: py37,py37-dj{109,110,111,200,201}
+#        TOX: py37,py37-dj{109,110,111,200,201}
+        TOX: py37,py37-dj{202,301}
         TOX_PYTHON_37: python
+
+  "python-3.8":
+    <<: *test-template
+    docker:
+    - image: circleci/python:3.8-stretch-browsers
+      environment:
+        REQUIREMENTS_FILE: dev-requirements.txt
+        PYLINTRC37: .pylintrc37
+#        TOX: py38,py38-dj{109,110,111,200,201}
+        TOX: py38,py38-dj{202,301}
+        TOX_PYTHON_38: python
+
+  "python-3.9":
+    <<: *test-template
+    docker:
+    - image: circleci/python:3.9-stretch-browsers
+      environment:
+        REQUIREMENTS_FILE: dev-requirements.txt
+        PYLINTRC37: .pylintrc37
+#        TOX: py39,py39-dj{109,110,111,200,201}
+        TOX: py39,py39-dj{202,301}
+        TOX_PYTHON_39: python
 
 workflows:
   version: 2
   build:
     jobs:
-      - "python-2.7"
-      - "python-3.6"
+#      - "python-2.7"
       - "python-3.7"
+      - "python-3.8"
+      - "python-3.9"

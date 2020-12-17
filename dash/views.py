@@ -1,27 +1,27 @@
 from __future__ import print_function
 
-import json
-from textwrap import dedent
+import logging
+
+import plotly
 
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
 from django.conf import settings
-from django.utils import six
 from django.core.exceptions import ImproperlyConfigured
 from django.http import JsonResponse as BaseJsonResponse
 
-import plotly
-
 from .dash import Dash
 from ._utils import generate_hash
-from . import exceptions
 
 
 __all__ = (
     'MetaDashView',
     'BaseDashView'
 )
+
+
+logger = logging.getLogger('dj_plotly_dash')
 
 
 class JsonResponse(BaseJsonResponse):
@@ -54,7 +54,7 @@ class MetaDashView(type):
         return new_cls
 
 
-class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
+class BaseDashView(TemplateView, metaclass=MetaDashView):
     _dashes = {}
 
     template_name = 'dash/base.html'
@@ -70,6 +70,13 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
     dash_components = None
     dash_hot_reload = None
     dash_suppress_callback_exceptions = True
+    dash_app_entry = """
+<div id="react-entry-point">
+    <div class="_dash-loading">
+        Loading...
+    </div>
+</div>
+"""
 
     def __init__(self, **kwargs):
         dash_base_url = kwargs.pop('dash_base_url', self.dash_base_url)
@@ -82,6 +89,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
         dash_hot_reload = kwargs.pop('dash_hot_reload', self.dash_hot_reload)
         dash_suppress_callback_exceptions = kwargs.pop('dash_suppress_callback_exceptions',
                                                        self.dash_suppress_callback_exceptions)
+        dash_app_entry = kwargs.pop('dash_app_entry', self.dash_app_entry)
 
         super(BaseDashView, self).__init__(**kwargs)
 
@@ -95,7 +103,7 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
             self.dash.config.url_base_pathname = dash_base_url  # pylint: disable=access-member-before-definition
             # pylint: disable=access-member-before-definition
             self.dash.config.requests_pathname_prefix = dash_base_url
-
+        self.dash.app_entry = dash_app_entry
         if dash_meta_tags and self.dash.config.meta_tags != dash_meta_tags:  # pylint: disable=protected-access
             # pylint: disable=protected-access, access-member-before-definition
             self.dash.config.meta_tags = dash_meta_tags
@@ -124,10 +132,28 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
         # self.dash.dash_name = self.dash_name
         self.dash._reload_hash = self._dash_hot_reload_hash  # pylint: disable=no-member
 
+        self.setup_conf()
+        self.setup_callbacks()
+
     def get(self, request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
         context.update(**self._dash_index(request, *args, **kwargs))
         return self.render_to_response(context)
+
+    def setup_conf(self):
+        """Setup view settings, view variables and etc here
+        """
+        pass
+
+    def setup_callbacks(self):
+        """Setup Dash callbacks
+        """
+        pass
+
+    def dash_layout(self):
+        """Get Dash layout
+        """
+        raise NotImplementedError('Not implemented dash_layout')
 
     @staticmethod
     def _dash_base_url(path, part):
@@ -137,47 +163,32 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
         return self.dash.index()
 
     def _dash_dependencies(self, request, *args, **kwargs):  # pylint: disable=unused-argument
+        self.dash._generate_scripts_html()
+        self.dash._generate_css_dist_html()
         return JsonResponse(self.dash.dependencies())
 
     def _dash_layout(self, request, *args, **kwargs):  # pylint: disable=unused-argument
+        if not self.dash._layout:
+            self.dash.layout = self.dash_layout()
         # TODO - Set browser cache limit - pass hash into frontend
         return JsonResponse(self.dash._layout_value())  # pylint: disable=protected-access
 
     def _dash_upd_component(self, request, *args, **kwargs):  # pylint: disable=unused-argument
-        body = json.loads(request.body)
-
-        output = body['output']
-        inputs = body.get('inputs', [])
-        state = body.get('state', [])
-        changed_props = body.get('changedPropIds', [])
+        output = request.output
+        outputs = request.outputs_list
+        inputs = request.inputs_list
+        state = request.states_list
 
         self.response = JsonResponse({})  # pylint: disable=attribute-defined-outside-init
-        output_value, response = self.dash.update_component(output, inputs, state, changed_props)
-        try:
-            self.response.content = JsonResponse(response).content
-        except TypeError:
-            self.dash._validate_callback_output(output_value, output)  # pylint: disable=protected-access
-            raise exceptions.InvalidCallbackReturnValue(
-                dedent(
-                    """
-            The callback for property `{property:s}`
-            of component `{id:s}` returned a value
-            which is not JSON serializable.
-
-            In general, Dash properties can only be
-            dash components, strings, dictionaries, numbers, None,
-            or lists of those.
-            """
-                ).format(
-                    property=output.component_property,
-                    id=output.component_id,
-                )
-            )
-
+        output_value, dash_response = self.dash.update_component(output, outputs, inputs, state)
+        self.response.content = JsonResponse(dash_response).content
         return self.response
 
     def _dash_component_suites(self, request, *args, **kwargs):  # pylint: disable=unused-argument
-        ext = kwargs.get('path_in_package_dist', '').split('.')[-1]
+        self.dash._generate_scripts_html()
+        self.dash._generate_css_dist_html()
+
+        ext = kwargs.get('fingerprinted_path', '').split('.')[-1]
         mimetype = {
             'js': 'application/javascript',
             'css': 'text/css',
@@ -186,7 +197,6 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
 
         response = HttpResponse(self.dash.serve_component_suites(*args, **kwargs), content_type=mimetype)
         # response['Cache-Control'] = 'public, max-age={}'.format(self.dash.config.components_cache_max_age)
-
         return response
 
     def _dash_routes(self, request, *args, **kwargs):  # pylint: disable=unused-argument
@@ -198,49 +208,57 @@ class BaseDashView(six.with_metaclass(MetaDashView, TemplateView)):
     def _dash_default_favicon(self, request, *args, **kwargs):  # pylint: disable=unused-argument
         response = HttpResponse(self.dash.serve_default_favicon(*args, **kwargs), content_type='image/x-icon')
         # response['Cache-Control'] = 'public, max-age={}'.format(self.dash.config.components_cache_max_age)
-
         return response
 
     @classmethod
     def serve_dash_index(cls, request, dash_name, *args, **kwargs):
+        logger.debug('serve_dash_index')
         view = cls._dashes[dash_name](dash_base_url=request.path)
-        view.request = request
-        view.args = args
-        view.kwargs = kwargs
+        view.setup(request, *args, **kwargs)
         return view.get(request, *args, **kwargs)   # pylint: disable=protected-access
 
     @classmethod
     def serve_dash_dependencies(cls, request, dash_name, *args, **kwargs):
+        logger.debug('serve_dash_dependencies')
         view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-dependencies'))
+        view.setup(request, *args, **kwargs)
         return view._dash_dependencies(request, *args, **kwargs)   # pylint: disable=protected-access
 
     @classmethod
     def serve_dash_layout(cls, request, dash_name, *args, **kwargs):
+        logger.debug('serve_dash_layout')
         view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-layout'))
+        view.setup(request, *args, **kwargs)
         return view._dash_layout(request, *args, **kwargs)   # pylint: disable=protected-access
 
     @classmethod
     @csrf_exempt
     def serve_dash_upd_component(cls, request, dash_name, *args, **kwargs):
+        logger.debug('serve_dash_upd_component')
         view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-update-component'))
+        view.setup(request, *args, **kwargs)
         return view._dash_upd_component(request, *args, **kwargs)   # pylint: disable=protected-access
 
     @classmethod
     def serve_dash_component_suites(cls, request, dash_name, *args, **kwargs):
+        logger.debug('serve_dash_component_suites')
         view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-component-suites'))
         return view._dash_component_suites(request, *args, **kwargs)   # pylint: disable=protected-access
 
     @classmethod
     def serve_dash_routes(cls, request, dash_name, *args, **kwargs):
+        logger.debug('serve_dash_routes')
         view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_dash-routes'))
         return view._dash_routes(request, *args, **kwargs)   # pylint: disable=protected-access
 
     @classmethod
     def serve_reload_hash(cls, request, dash_name, *args, **kwargs):
+        logger.debug('serve_reload_hash')
         view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_reload-hash'))
         return view._dash_reload_hash(request, *args, **kwargs)   # pylint: disable=protected-access
 
     @classmethod
     def serve_default_favicon(cls, request, dash_name, *args, **kwargs):
+        logger.debug('serve_default_favicon')
         view = cls._dashes[dash_name](dash_base_url=cls._dash_base_url(request.path, '/_favicon.ico'))
         return view._dash_default_favicon(request, *args, **kwargs)   # pylint: disable=protected-access

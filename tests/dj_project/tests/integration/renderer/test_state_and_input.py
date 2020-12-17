@@ -35,8 +35,11 @@ def test_rdsi001_state_and_inputs(dash_duo):
         dash = app
     dash_duo.start_server(DashView)
 
-    input_ = lambda: dash_duo.find_element("#input")
-    output_ = lambda: dash_duo.find_element("#output")
+    def input_():
+        return dash_duo.find_element("#input")
+
+    def output_():
+        return dash_duo.find_element("#output")
 
     assert (
         output_().text == 'input="Initial Input", state="Initial State"'
@@ -88,8 +91,11 @@ def test_rdsi002_event_properties_state_and_inputs(dash_duo):
         dash = app
     dash_duo.start_server(DashView)
 
-    btn = lambda: dash_duo.find_element("#button")
-    output = lambda: dash_duo.find_element("#output")
+    def btn():
+        return dash_duo.find_element("#button")
+
+    def output():
+        return dash_duo.find_element("#output")
 
     assert (
         output().text == 'input="Initial Input", state="Initial State"'

@@ -1,0 +1,35 @@
+{
+  "src/components/MyStandardComponent.js": {
+    "description": "MyComponent description",
+    "displayName": "MyStandardComponent",
+    "methods": [],
+    "props": {
+      "id": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": "The id of the component"
+      },
+      "style": {
+        "type": {
+          "name": "custom",
+          "raw": "PropTypes.shape"
+        },
+        "required": false,
+        "description": "The style"
+      },
+      "value": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": "The value to display",
+        "defaultValue": {
+          "value": "''",
+          "computed": false
+        }
+      }
+    }
+  }
+}

@@ -66,4 +66,4 @@ dash_renderer/
 digest.json
 VERSION.txt
 
-tests/dj_project/static/
+tests/dj_project/static/_dash-component-suites/

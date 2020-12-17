@@ -1,16 +1,14 @@
-import {connect} from 'react-redux';
 import {Component} from 'react';
 import PropTypes from 'prop-types';
-import Radium from 'radium';
 import {onError, revert} from '../../actions';
 
-class UnconnectedComponentErrorBoundary extends Component {
+class ComponentErrorBoundary extends Component {
     constructor(props) {
         super(props);
         this.state = {
             myID: props.componentId,
             oldChildren: null,
-            hasError: false,
+            hasError: false
         };
     }
 
@@ -25,13 +23,12 @@ class UnconnectedComponentErrorBoundary extends Component {
                 myID: this.state.myID,
                 type: 'frontEnd',
                 error,
-                info,
+                info
             })
         );
         dispatch(revert);
     }
 
-    /* eslint-disable react/no-did-update-set-state */
     componentDidUpdate(prevProps, prevState) {
         const prevChildren = prevProps.children;
         if (
@@ -39,12 +36,12 @@ class UnconnectedComponentErrorBoundary extends Component {
             prevChildren !== prevState.oldChildren &&
             prevChildren !== this.props.children
         ) {
+            /* eslint-disable-next-line react/no-did-update-set-state */
             this.setState({
-                oldChildren: prevChildren,
+                oldChildren: prevChildren
             });
         }
     }
-    /* eslint-enable react/no-did-update-set-state */
 
     render() {
         const {hasError, oldChildren} = this.state;
@@ -52,20 +49,11 @@ class UnconnectedComponentErrorBoundary extends Component {
     }
 }
 
-UnconnectedComponentErrorBoundary.propTypes = {
+ComponentErrorBoundary.propTypes = {
     children: PropTypes.object,
     componentId: PropTypes.string,
     error: PropTypes.object,
-    dispatch: PropTypes.func,
+    dispatch: PropTypes.func
 };
-
-const ComponentErrorBoundary = connect(
-    state => ({
-        error: state.error,
-    }),
-    dispatch => {
-        return {dispatch};
-    }
-)(Radium(UnconnectedComponentErrorBoundary));
 
 export default ComponentErrorBoundary;

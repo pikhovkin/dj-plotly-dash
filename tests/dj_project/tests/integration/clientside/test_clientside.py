@@ -4,7 +4,8 @@ from multiprocessing import Value
 import dash_html_components as html
 import dash_core_components as dcc
 from dash import Dash
-from dash.dependencies import Input, Output, State, ClientsideFunction
+from dash.dependencies import Input, Output, State, ClientsideFunction, ALL
+from selenium.webdriver.common.keys import Keys
 
 from dash.testing.plugin import *
 from .. import BaseDashView, use_static_root as _use_static_root
@@ -26,9 +27,7 @@ def test_clsd001_simple_clientside_serverside_callback(dash_duo):
         ]
     )
 
-    @app.callback(
-        Output("output-serverside", "children"), [Input("input", "value")]
-    )
+    @app.callback(Output("output-serverside", "children"), [Input("input", "value")])
     def update_output(value):
         return 'Server says "{}"'.format(value)
 
@@ -44,17 +43,11 @@ def test_clsd001_simple_clientside_serverside_callback(dash_duo):
     dash_duo.start_server(DashView)
 
     dash_duo.wait_for_text_to_equal("#output-serverside", 'Server says "None"')
-    dash_duo.wait_for_text_to_equal(
-        "#output-clientside", 'Client says "undefined"'
-    )
+    dash_duo.wait_for_text_to_equal("#output-clientside", 'Client says "undefined"')
 
     dash_duo.find_element("#input").send_keys("hello world")
-    dash_duo.wait_for_text_to_equal(
-        "#output-serverside", 'Server says "hello world"'
-    )
-    dash_duo.wait_for_text_to_equal(
-        "#output-clientside", 'Client says "hello world"'
-    )
+    dash_duo.wait_for_text_to_equal("#output-serverside", 'Server says "hello world"')
+    dash_duo.wait_for_text_to_equal("#output-clientside", 'Client says "hello world"')
 
 
 def test_clsd002_chained_serverside_clientside_callbacks(dash_duo):
@@ -93,9 +86,7 @@ def test_clsd002_chained_serverside_clientside_callbacks(dash_duo):
 
     call_counts = {"divide": Value("i", 0), "display": Value("i", 0)}
 
-    @app.callback(
-        Output("x-plus-y-div-2", "value"), [Input("x-plus-y", "value")]
-    )
+    @app.callback(Output("x-plus-y-div-2", "value"), [Input("x-plus-y", "value")])
     def divide_by_two(value):
         call_counts["divide"].value += 1
         return float(value) / 2.0
@@ -165,11 +156,7 @@ def test_clsd003_clientside_exceptions_halt_subsequent_updates(dash_duo):
     app = Dash(__name__, assets_folder="clientside_assets")
 
     app.layout = html.Div(
-        [
-            dcc.Input(id="first", value=1),
-            dcc.Input(id="second"),
-            dcc.Input(id="third"),
-        ]
+        [dcc.Input(id="first", value=1), dcc.Input(id="second"), dcc.Input(id="third")]
     )
 
     app.clientside_callback(
@@ -285,6 +272,7 @@ def test_clsd005_clientside_fails_when_returning_a_promise(dash_duo):
     dash_duo.wait_for_text_to_equal("#side-effect", "side effect")
     dash_duo.wait_for_text_to_equal("#output", "output")
 
+
 def test_clsd006_PreventUpdate(dash_duo):
     app = Dash(__name__, assets_folder="clientside_assets")
 
@@ -292,7 +280,7 @@ def test_clsd006_PreventUpdate(dash_duo):
         [
             dcc.Input(id="first", value=1),
             dcc.Input(id="second", value=1),
-            dcc.Input(id="third", value=1)
+            dcc.Input(id="third", value=1),
         ]
     )
 
@@ -300,14 +288,14 @@ def test_clsd006_PreventUpdate(dash_duo):
         ClientsideFunction(namespace="clientside", function_name="add1_prevent_at_11"),
         Output("second", "value"),
         [Input("first", "value")],
-        [State("second", "value")]
+        [State("second", "value")],
     )
 
     app.clientside_callback(
         ClientsideFunction(namespace="clientside", function_name="add1_prevent_at_11"),
         Output("third", "value"),
         [Input("second", "value")],
-        [State("third", "value")]
+        [State("third", "value")],
     )
 
     class DashView(BaseDashView):
@@ -315,24 +303,23 @@ def test_clsd006_PreventUpdate(dash_duo):
 
     dash_duo.start_server(DashView)
 
-    dash_duo.wait_for_text_to_equal("#first", '1')
-    dash_duo.wait_for_text_to_equal("#second", '2')
-    dash_duo.wait_for_text_to_equal("#third", '2')
+    dash_duo.wait_for_text_to_equal("#first", "1")
+    dash_duo.wait_for_text_to_equal("#second", "2")
+    dash_duo.wait_for_text_to_equal("#third", "2")
 
     dash_duo.find_element("#first").send_keys("1")
 
-    dash_duo.wait_for_text_to_equal("#first", '11')
-    dash_duo.wait_for_text_to_equal("#second", '2')
-    dash_duo.wait_for_text_to_equal("#third", '2')
+    dash_duo.wait_for_text_to_equal("#first", "11")
+    dash_duo.wait_for_text_to_equal("#second", "2")
+    dash_duo.wait_for_text_to_equal("#third", "2")
 
     dash_duo.find_element("#first").send_keys("1")
 
-    dash_duo.wait_for_text_to_equal("#first", '111')
-    dash_duo.wait_for_text_to_equal("#second", '3')
-    dash_duo.wait_for_text_to_equal("#third", '3')
+    dash_duo.wait_for_text_to_equal("#first", "111")
+    dash_duo.wait_for_text_to_equal("#second", "3")
+    dash_duo.wait_for_text_to_equal("#third", "3")
 
 
-@pytest.mark.skip
 def test_clsd007_no_update(dash_duo):
     app = Dash(__name__, assets_folder="clientside_assets")
 
@@ -340,17 +327,17 @@ def test_clsd007_no_update(dash_duo):
         [
             dcc.Input(id="first", value=1),
             dcc.Input(id="second", value=1),
-            dcc.Input(id="third", value=1)
+            dcc.Input(id="third", value=1),
         ]
     )
 
     app.clientside_callback(
-        ClientsideFunction(namespace="clientside", function_name="add1_no_update_at_11"),
-        [Output("second", "value"),
-         Output("third", "value")],
+        ClientsideFunction(
+            namespace="clientside", function_name="add1_no_update_at_11"
+        ),
+        [Output("second", "value"), Output("third", "value")],
         [Input("first", "value")],
-        [State("second", "value"),
-         State("third", "value")]
+        [State("second", "value"), State("third", "value")],
     )
 
     class DashView(BaseDashView):
@@ -358,21 +345,22 @@ def test_clsd007_no_update(dash_duo):
 
     dash_duo.start_server(DashView)
 
-    dash_duo.wait_for_text_to_equal("#first", '1')
-    dash_duo.wait_for_text_to_equal("#second", '2')
-    dash_duo.wait_for_text_to_equal("#third", '2')
+    dash_duo.wait_for_text_to_equal("#first", "1")
+    dash_duo.wait_for_text_to_equal("#second", "2")
+    dash_duo.wait_for_text_to_equal("#third", "2")
 
     dash_duo.find_element("#first").send_keys("1")
 
-    dash_duo.wait_for_text_to_equal("#first", '11')
-    dash_duo.wait_for_text_to_equal("#second", '2')
-    dash_duo.wait_for_text_to_equal("#third", '3')
+    dash_duo.wait_for_text_to_equal("#first", "11")
+    dash_duo.wait_for_text_to_equal("#second", "2")
+    dash_duo.wait_for_text_to_equal("#third", "3")
 
     dash_duo.find_element("#first").send_keys("1")
 
-    dash_duo.wait_for_text_to_equal("#first", '111')
-    dash_duo.wait_for_text_to_equal("#second", '3')
-    dash_duo.wait_for_text_to_equal("#third", '4')
+    dash_duo.wait_for_text_to_equal("#first", "111")
+    dash_duo.wait_for_text_to_equal("#second", "3")
+    dash_duo.wait_for_text_to_equal("#third", "4")
+
 
 def test_clsd008_clientside_inline_source(dash_duo):
     app = Dash(__name__, assets_folder="clientside_assets")
@@ -385,9 +373,7 @@ def test_clsd008_clientside_inline_source(dash_duo):
         ]
     )
 
-    @app.callback(
-        Output("output-serverside", "children"), [Input("input", "value")]
-    )
+    @app.callback(Output("output-serverside", "children"), [Input("input", "value")])
     def update_output(value):
         return 'Server says "{}"'.format(value)
 
@@ -407,14 +393,340 @@ def test_clsd008_clientside_inline_source(dash_duo):
     dash_duo.start_server(DashView)
 
     dash_duo.wait_for_text_to_equal("#output-serverside", 'Server says "None"')
-    dash_duo.wait_for_text_to_equal(
-        "#output-clientside", 'Client says "undefined"'
-    )
+    dash_duo.wait_for_text_to_equal("#output-clientside", 'Client says "undefined"')
 
     dash_duo.find_element("#input").send_keys("hello world")
-    dash_duo.wait_for_text_to_equal(
-        "#output-serverside", 'Server says "hello world"'
+    dash_duo.wait_for_text_to_equal("#output-serverside", 'Server says "hello world"')
+    dash_duo.wait_for_text_to_equal("#output-clientside", 'Client says "hello world"')
+
+
+def test_clsd009_clientside_callback_context_triggered(dash_duo):
+    app = Dash(__name__, assets_folder="clientside_assets")
+
+    app.layout = html.Div(
+        [
+            html.Button("btn0", id="btn0"),
+            html.Button("btn1:0", id={"btn1": 0}),
+            html.Button("btn1:1", id={"btn1": 1}),
+            html.Button("btn1:2", id={"btn1": 2}),
+            html.Div(id="output-clientside", style={"font-family": "monospace"}),
+        ]
     )
+
+    app.clientside_callback(
+        ClientsideFunction(namespace="clientside", function_name="triggered_to_str"),
+        Output("output-clientside", "children"),
+        [Input("btn0", "n_clicks"), Input({"btn1": ALL}, "n_clicks")],
+    )
+
+    class DashView(BaseDashView):
+        dash = app
+
+    dash_duo.start_server(DashView)
+
+    dash_duo.wait_for_text_to_equal("#output-clientside", "")
+
+    dash_duo.find_element("#btn0").click()
+
     dash_duo.wait_for_text_to_equal(
-        "#output-clientside", 'Client says "hello world"'
+        "#output-clientside", "btn0.n_clicks = 1",
+    )
+
+    dash_duo.find_element("button[id*='btn1\":0']").click()
+    dash_duo.find_element("button[id*='btn1\":0']").click()
+
+    dash_duo.wait_for_text_to_equal("#output-clientside", '{"btn1":0}.n_clicks = 2')
+
+    dash_duo.find_element("button[id*='btn1\":2']").click()
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside", '{"btn1":2}.n_clicks = 1',
+    )
+
+
+def test_clsd010_clientside_callback_context_inputs(dash_duo):
+    app = Dash(__name__, assets_folder="clientside_assets")
+
+    app.layout = html.Div(
+        [
+            html.Button("btn0", id="btn0"),
+            html.Button("btn1:0", id={"btn1": 0}),
+            html.Button("btn1:1", id={"btn1": 1}),
+            html.Button("btn1:2", id={"btn1": 2}),
+            html.Div(id="output-clientside", style={"font-family": "monospace"}),
+        ]
+    )
+
+    app.clientside_callback(
+        ClientsideFunction(namespace="clientside", function_name="inputs_to_str"),
+        Output("output-clientside", "children"),
+        [Input("btn0", "n_clicks"), Input({"btn1": ALL}, "n_clicks")],
+    )
+
+    class DashView(BaseDashView):
+        dash = app
+
+    dash_duo.start_server(DashView)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            "btn0.n_clicks = null, "
+            '{"btn1":0}.n_clicks = null, '
+            '{"btn1":1}.n_clicks = null, '
+            '{"btn1":2}.n_clicks = null'
+        ),
+    )
+
+    dash_duo.find_element("#btn0").click()
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            "btn0.n_clicks = 1, "
+            '{"btn1":0}.n_clicks = null, '
+            '{"btn1":1}.n_clicks = null, '
+            '{"btn1":2}.n_clicks = null'
+        ),
+    )
+
+    dash_duo.find_element("button[id*='btn1\":0']").click()
+    dash_duo.find_element("button[id*='btn1\":0']").click()
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            "btn0.n_clicks = 1, "
+            '{"btn1":0}.n_clicks = 2, '
+            '{"btn1":1}.n_clicks = null, '
+            '{"btn1":2}.n_clicks = null'
+        ),
+    )
+
+    dash_duo.find_element("button[id*='btn1\":2']").click()
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            "btn0.n_clicks = 1, "
+            '{"btn1":0}.n_clicks = 2, '
+            '{"btn1":1}.n_clicks = null, '
+            '{"btn1":2}.n_clicks = 1'
+        ),
+    )
+
+
+def test_clsd011_clientside_callback_context_inputs_list(dash_duo):
+    app = Dash(__name__, assets_folder="clientside_assets")
+
+    app.layout = html.Div(
+        [
+            html.Button("btn0", id="btn0"),
+            html.Button("btn1:0", id={"btn1": 0}),
+            html.Button("btn1:1", id={"btn1": 1}),
+            html.Button("btn1:2", id={"btn1": 2}),
+            html.Div(id="output-clientside", style={"font-family": "monospace"}),
+        ]
+    )
+
+    app.clientside_callback(
+        ClientsideFunction(namespace="clientside", function_name="inputs_list_to_str"),
+        Output("output-clientside", "children"),
+        [Input("btn0", "n_clicks"), Input({"btn1": ALL}, "n_clicks")],
+    )
+
+    class DashView(BaseDashView):
+        dash = app
+
+    dash_duo.start_server(DashView)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            '[{"id":"btn0","property":"n_clicks"},'
+            '[{"id":{"btn1":0},"property":"n_clicks"},'
+            '{"id":{"btn1":1},"property":"n_clicks"},'
+            '{"id":{"btn1":2},"property":"n_clicks"}]]'
+        ),
+    )
+
+    dash_duo.find_element("#btn0").click()
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            '[{"id":"btn0","property":"n_clicks","value":1},'
+            '[{"id":{"btn1":0},"property":"n_clicks"},'
+            '{"id":{"btn1":1},"property":"n_clicks"},'
+            '{"id":{"btn1":2},"property":"n_clicks"}]]'
+        ),
+    )
+
+    dash_duo.find_element("button[id*='btn1\":0']").click()
+    dash_duo.find_element("button[id*='btn1\":0']").click()
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            '[{"id":"btn0","property":"n_clicks","value":1},'
+            '[{"id":{"btn1":0},"property":"n_clicks","value":2},'
+            '{"id":{"btn1":1},"property":"n_clicks"},'
+            '{"id":{"btn1":2},"property":"n_clicks"}]]'
+        ),
+    )
+
+    dash_duo.find_element("button[id*='btn1\":2']").click()
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            '[{"id":"btn0","property":"n_clicks","value":1},'
+            '[{"id":{"btn1":0},"property":"n_clicks","value":2},'
+            '{"id":{"btn1":1},"property":"n_clicks"},'
+            '{"id":{"btn1":2},"property":"n_clicks","value":1}]]'
+        ),
+    )
+
+
+def test_clsd012_clientside_callback_context_states(dash_duo):
+    app = Dash(__name__, assets_folder="clientside_assets")
+
+    app.layout = html.Div(
+        [
+            dcc.Input(id="in0"),
+            dcc.Input(id={"in1": 0}),
+            dcc.Input(id={"in1": 1}),
+            dcc.Input(id={"in1": 2}),
+            html.Div(id="output-clientside", style={"font-family": "monospace"}),
+        ]
+    )
+
+    app.clientside_callback(
+        ClientsideFunction(namespace="clientside", function_name="states_to_str"),
+        Output("output-clientside", "children"),
+        [Input("in0", "n_submit"), Input({"in1": ALL}, "n_submit")],
+        [State("in0", "value"), State({"in1": ALL}, "value")],
+    )
+
+    class DashView(BaseDashView):
+        dash = app
+
+    dash_duo.start_server(DashView)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            "in0.value = null, "
+            '{"in1":0}.value = null, '
+            '{"in1":1}.value = null, '
+            '{"in1":2}.value = null'
+        ),
+    )
+
+    dash_duo.find_element("#in0").send_keys("test 0" + Keys.RETURN)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            "in0.value = test 0, "
+            '{"in1":0}.value = null, '
+            '{"in1":1}.value = null, '
+            '{"in1":2}.value = null'
+        ),
+    )
+
+    dash_duo.find_element("input[id*='in1\":0']").send_keys("test 1" + Keys.RETURN)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            "in0.value = test 0, "
+            '{"in1":0}.value = test 1, '
+            '{"in1":1}.value = null, '
+            '{"in1":2}.value = null'
+        ),
+    )
+
+    dash_duo.find_element("input[id*='in1\":2']").send_keys("test 2" + Keys.RETURN)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            "in0.value = test 0, "
+            '{"in1":0}.value = test 1, '
+            '{"in1":1}.value = null, '
+            '{"in1":2}.value = test 2'
+        ),
+    )
+
+
+def test_clsd013_clientside_callback_context_states_list(dash_duo):
+    app = Dash(__name__, assets_folder="clientside_assets")
+
+    app.layout = html.Div(
+        [
+            dcc.Input(id="in0"),
+            dcc.Input(id={"in1": 0}),
+            dcc.Input(id={"in1": 1}),
+            dcc.Input(id={"in1": 2}),
+            html.Div(id="output-clientside", style={"font-family": "monospace"}),
+        ]
+    )
+
+    app.clientside_callback(
+        ClientsideFunction(namespace="clientside", function_name="states_list_to_str"),
+        Output("output-clientside", "children"),
+        [Input("in0", "n_submit"), Input({"in1": ALL}, "n_submit")],
+        [State("in0", "value"), State({"in1": ALL}, "value")],
+    )
+
+    class DashView(BaseDashView):
+        dash = app
+
+    dash_duo.start_server(DashView)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            '[{"id":"in0","property":"value"},'
+            '[{"id":{"in1":0},"property":"value"},'
+            '{"id":{"in1":1},"property":"value"},'
+            '{"id":{"in1":2},"property":"value"}]]'
+        ),
+    )
+
+    dash_duo.find_element("#in0").send_keys("test 0" + Keys.RETURN)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            '[{"id":"in0","property":"value","value":"test 0"},'
+            '[{"id":{"in1":0},"property":"value"},'
+            '{"id":{"in1":1},"property":"value"},'
+            '{"id":{"in1":2},"property":"value"}]]'
+        ),
+    )
+
+    dash_duo.find_element("input[id*='in1\":0']").send_keys("test 1" + Keys.RETURN)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            '[{"id":"in0","property":"value","value":"test 0"},'
+            '[{"id":{"in1":0},"property":"value","value":"test 1"},'
+            '{"id":{"in1":1},"property":"value"},'
+            '{"id":{"in1":2},"property":"value"}]]'
+        ),
+    )
+
+    dash_duo.find_element("input[id*='in1\":2']").send_keys("test 2" + Keys.RETURN)
+
+    dash_duo.wait_for_text_to_equal(
+        "#output-clientside",
+        (
+            '[{"id":"in0","property":"value","value":"test 0"},'
+            '[{"id":{"in1":0},"property":"value","value":"test 1"},'
+            '{"id":{"in1":1},"property":"value"},'
+            '{"id":{"in1":2},"property":"value","value":"test 2"}]]'
+        ),
     )

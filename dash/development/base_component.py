@@ -3,13 +3,13 @@ import inspect
 import sys
 from future.utils import with_metaclass
 
-from .._utils import patch_collections_abc
+from .._utils import patch_collections_abc, _strings, stringify_id
 
 MutableSequence = patch_collections_abc("MutableSequence")
 
 
 # pylint: disable=no-init,too-few-public-methods
-class ComponentRegistry(object):
+class ComponentRegistry:
     """Holds a registry of the namespaces used by components."""
 
     registry = set()
@@ -98,38 +98,55 @@ class Component(with_metaclass(ComponentMeta, object)):
             # e.g. "The dash_core_components.Dropdown component (version 1.6.0)
             # with the ID "my-dropdown"
             try:
-                error_string_prefix = 'The `{}.{}` component (version {}){}'.format(
+                error_string_prefix = "The `{}.{}` component (version {}){}".format(
                     self._namespace,
                     self._type,
-                    getattr(__import__(self._namespace), '__version__', 'unknown'),
-                    ' with the ID "{}"'.format(kwargs['id'])
-                    if 'id' in kwargs else ''
+                    getattr(__import__(self._namespace), "__version__", "unknown"),
+                    ' with the ID "{}"'.format(kwargs["id"]) if "id" in kwargs else "",
                 )
             except ImportError:
                 # Our tests create mock components with libraries that
                 # aren't importable
-                error_string_prefix = 'The `{}` component{}'.format(
+                error_string_prefix = "The `{}` component{}".format(
                     self._type,
-                    ' with the ID "{}"'.format(kwargs['id'])
-                    if 'id' in kwargs else ''
+                    ' with the ID "{}"'.format(kwargs["id"]) if "id" in kwargs else "",
                 )
 
             if not k_in_propnames and not k_in_wildcards:
                 raise TypeError(
                     "{} received an unexpected keyword argument: `{}`".format(
                         error_string_prefix, k
-                    ) + "\nAllowed arguments: {}".format(                        # pylint: disable=no-member
+                    )
+                    + "\nAllowed arguments: {}".format(  # pylint: disable=no-member
                         ", ".join(sorted(self._prop_names))
                     )
                 )
 
             if k != "children" and isinstance(v, Component):
                 raise TypeError(
-                    error_string_prefix +
-                    " detected a Component for a prop other than `children`\n" +
-                    "Did you forget to wrap multiple `children` in an array?\n" +
-                    "Prop {} has value {}\n".format(k, repr(v))
+                    error_string_prefix
+                    + " detected a Component for a prop other than `children`\n"
+                    + "Did you forget to wrap multiple `children` in an array?\n"
+                    + "Prop {} has value {}\n".format(k, repr(v))
                 )
+
+            if k == "id":
+                if isinstance(v, dict):
+                    for id_key, id_val in v.items():
+                        if not isinstance(id_key, _strings):
+                            raise TypeError(
+                                "dict id keys must be strings,\n"
+                                + "found {!r} in id {!r}".format(id_key, v)
+                            )
+                        if not isinstance(id_val, _strings + (int, float, bool)):
+                            raise TypeError(
+                                "dict id values must be strings, numbers or bools,\n"
+                                + "found {!r} in id {!r}".format(id_val, v)
+                            )
+                elif not isinstance(v, _strings):
+                    raise TypeError(
+                        "`id` prop must be a string or dict, not {!r}".format(v)
+                    )
 
             setattr(self, k, v)
 
@@ -254,16 +271,16 @@ class Component(with_metaclass(ComponentMeta, object)):
         for t in self._traverse_with_paths():
             yield t[1]
 
+    @staticmethod
+    def _id_str(component):
+        id_ = stringify_id(getattr(component, "id", ""))
+        return id_ and " (id={:s})".format(id_)
+
     def _traverse_with_paths(self):
         """Yield each item with its path in the tree."""
         children = getattr(self, "children", None)
         children_type = type(children).__name__
-        children_id = (
-            "(id={:s})".format(children.id)
-            if getattr(children, "id", False)
-            else ""
-        )
-        children_string = children_type + " " + children_id
+        children_string = children_type + self._id_str(children)
 
         # children is just a component
         if isinstance(children, Component):
@@ -275,12 +292,8 @@ class Component(with_metaclass(ComponentMeta, object)):
         # children is a list of components
         elif isinstance(children, (tuple, MutableSequence)):
             for idx, i in enumerate(children):
-                list_path = "[{:d}] {:s} {}".format(
-                    idx,
-                    type(i).__name__,
-                    "(id={:s})".format(i.id)
-                    if getattr(i, "id", False)
-                    else "",
+                list_path = "[{:d}] {:s}{}".format(
+                    idx, type(i).__name__, self._id_str(i)
                 )
                 yield list_path, i
 
@@ -289,12 +302,16 @@ class Component(with_metaclass(ComponentMeta, object)):
                     for p, t in i._traverse_with_paths():
                         yield "\n".join([list_path, p]), t
 
-    def __iter__(self):
-        """Yield IDs in the tree of children."""
+    def _traverse_ids(self):
+        """Yield components with IDs in the tree of children."""
         for t in self._traverse():
             if isinstance(t, Component) and getattr(t, "id", None) is not None:
+                yield t
 
-                yield t.id
+    def __iter__(self):
+        """Yield IDs in the tree of children."""
+        for t in self._traverse_ids():
+            yield t.id
 
     def __len__(self):
         """Return the number of items in the tree."""
@@ -325,10 +342,7 @@ class Component(with_metaclass(ComponentMeta, object)):
         ] + [
             c
             for c in self.__dict__
-            if any(
-                c.startswith(wc_attr)
-                for wc_attr in self._valid_wildcard_attributes
-            )
+            if any(c.startswith(wc_attr) for wc_attr in self._valid_wildcard_attributes)
         ]
         if any(p != "children" for p in props_with_values):
             props_string = ", ".join(

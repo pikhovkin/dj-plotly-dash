@@ -1,0 +1,13 @@
+Package: dashGeneratorTestComponentStandard
+Title: Dash Generator Test Standard Component
+Version: 0.0.1
+Description: Dash Generator Test Standard Component
+Depends: R (>= 3.0.2)
+Imports: 
+Suggests: 
+License: MIT
+URL: https://github.com/plotly/dash
+BugReports: https://github.com/plotly/dash/issues
+Encoding: UTF-8
+LazyData: true
+KeepSource: true

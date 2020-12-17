@@ -1,0 +1,27 @@
+{
+  "src/components/MyNestedComponent.js": {
+    "description": "MyNestedComponent description",
+    "displayName": "MyNestedComponent",
+    "methods": [],
+    "props": {
+      "id": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": "The id of the component"
+      },
+      "value": {
+        "type": {
+          "name": "string"
+        },
+        "required": false,
+        "description": "The value to display",
+        "defaultValue": {
+          "value": "''",
+          "computed": false
+        }
+      }
+    }
+  }
+}

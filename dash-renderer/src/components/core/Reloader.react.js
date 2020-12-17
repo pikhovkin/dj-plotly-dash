@@ -1,4 +1,3 @@
-/* eslint-disable no-undef,react/no-did-update-set-state,no-magic-numbers */
 import {
     comparator,
     equals,
@@ -8,7 +7,7 @@ import {
     lt,
     path,
     pathOr,
-    sort,
+    sort
 } from 'ramda';
 import React from 'react';
 import PropTypes from 'prop-types';
@@ -25,11 +24,11 @@ class Reloader extends React.Component {
                 disabled: false,
                 intervalId: null,
                 packages: null,
-                max_retry,
+                max_retry
             };
         } else {
             this.state = {
-                disabled: true,
+                disabled: true
             };
         }
         this._retry = 0;
@@ -149,7 +148,7 @@ class Reloader extends React.Component {
                     // Assets file have changed
                     // or a component lib has been added/removed -
                     // Must do a hard reload
-                    window.top.location.reload();
+                    window.location.reload();
                 }
             } else {
                 // Backend code changed - can do a soft reload in place
@@ -203,13 +202,13 @@ Reloader.propTypes = {
     config: PropTypes.object,
     reloadRequest: PropTypes.object,
     dispatch: PropTypes.func,
-    interval: PropTypes.number,
+    interval: PropTypes.number
 };
 
 export default connect(
     state => ({
         config: state.config,
-        reloadRequest: state.reloadRequest,
+        reloadRequest: state.reloadRequest
     }),
     dispatch => ({dispatch})
 )(Reloader);

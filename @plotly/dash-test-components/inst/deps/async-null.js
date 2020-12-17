@@ -1,0 +1,1 @@
+(window.webpackJsonpdash_test_components=window.webpackJsonpdash_test_components||[]).push([[0],{4:function(n,e,t){"use strict";t.r(e);var a=t(0),s=t.n(a),o=t(1),r=t.n(o),p=(t(2),function(n){var e=n.value;return r.a.createElement(o.Fragment,null,e)});p.propTypes={id:s.a.string,value:s.a.string},p.defaultProps={},e.default=p}}]);

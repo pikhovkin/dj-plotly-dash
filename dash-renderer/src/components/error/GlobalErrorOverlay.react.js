@@ -11,18 +11,23 @@ export default class GlobalErrorOverlay extends Component {
     }
 
     render() {
-        const {visible, error, toastsEnabled} = this.props;
+        const {visible, error, errorsOpened} = this.props;
 
         let frontEndErrors;
-        if (toastsEnabled) {
+        if (errorsOpened) {
             const errors = concat(error.frontEnd, error.backEnd);
 
-            frontEndErrors = <FrontEndErrorContainer errors={errors} />;
+            frontEndErrors = (
+                <FrontEndErrorContainer
+                    errors={errors}
+                    connected={error.backEndConnected}
+                />
+            );
         }
         return (
             <div>
                 <div>{this.props.children}</div>
-                <div className="dash-error-menu">
+                <div className='dash-error-menu'>
                     <div className={visible ? 'dash-fe-errors' : ''}>
                         {frontEndErrors}
                     </div>
@@ -36,5 +41,5 @@ GlobalErrorOverlay.propTypes = {
     children: PropTypes.object,
     visible: PropTypes.bool,
     error: PropTypes.object,
-    toastsEnabled: PropTypes.any,
+    errorsOpened: PropTypes.any
 };

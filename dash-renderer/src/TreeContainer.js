@@ -1,69 +1,38 @@
-import React, {Component} from 'react';
+import React, {Component, memo} from 'react';
 import PropTypes from 'prop-types';
 import Registry from './registry';
 import {propTypeErrorHandler} from './exceptions';
-import {connect} from 'react-redux';
 import {
     addIndex,
-    any,
     concat,
-    filter,
-    forEach,
-    has,
-    includes,
+    dissoc,
+    equals,
     isEmpty,
     isNil,
-    keysIn,
+    keys,
     map,
     mergeRight,
-    omit,
     pick,
+    pickBy,
     propOr,
-    type,
+    type
 } from 'ramda';
 import {notifyObservers, updateProps} from './actions';
 import isSimpleComponent from './isSimpleComponent';
 import {recordUiEdit} from './persistence';
 import ComponentErrorBoundary from './components/error/ComponentErrorBoundary.react';
 import checkPropTypes from './checkPropTypes';
+import {getWatchedKeys, stringifyId} from './actions/dependencies';
+import {
+    getLoadingHash,
+    getLoadingState,
+    validateComponent
+} from './utils/TreeContainer';
+import {DashContext} from './APIController.react';
 
-function validateComponent(componentDefinition) {
-    if (type(componentDefinition) === 'Array') {
-        throw new Error(
-            'The children property of a component is a list of lists, instead ' +
-                'of just a list. ' +
-                'Check the component that has the following contents, ' +
-                'and remove of the levels of nesting: \n' +
-                JSON.stringify(componentDefinition, null, 2)
-        );
-    }
-    if (
-        type(componentDefinition) === 'Object' &&
-        !(
-            has('namespace', componentDefinition) &&
-            has('type', componentDefinition) &&
-            has('props', componentDefinition)
-        )
-    ) {
-        throw new Error(
-            'An object was provided as `children` instead of a component, ' +
-                'string, or number (or list of those). ' +
-                'Check the children property that looks something like:\n' +
-                JSON.stringify(componentDefinition, null, 2)
-        );
-    }
-}
-
-const createContainer = (component, path) =>
-    isSimpleComponent(component) ? (
-        component
-    ) : (
-        <AugmentedTreeContainer
-            key={component && component.props && component.props.id}
-            _dashprivate_layout={component}
-            _dashprivate_path={path}
-        />
-    );
+const NOT_LOADING = {
+    is_loading: false
+};
 
 function CheckedComponent(p) {
     const {element, extraProps, props, children, type} = p;
@@ -78,11 +47,7 @@ function CheckedComponent(p) {
         propTypeErrorHandler(errorMessage, props, type);
     }
 
-    return React.createElement(
-        element,
-        mergeRight(props, extraProps),
-        ...(Array.isArray(children) ? children : [children])
-    );
+    return createElement(element, props, extraProps, children);
 }
 
 CheckedComponent.propTypes = {
@@ -91,58 +56,103 @@ CheckedComponent.propTypes = {
     layout: PropTypes.any,
     props: PropTypes.any,
     extraProps: PropTypes.any,
-    id: PropTypes.string,
+    id: PropTypes.string
 };
-class TreeContainer extends Component {
+
+function createElement(element, props, extraProps, children) {
+    const allProps = mergeRight(props, extraProps);
+    if (Array.isArray(children)) {
+        return React.createElement(element, allProps, ...children);
+    }
+    return React.createElement(element, allProps, children);
+}
+
+const TreeContainer = memo(props => (
+    <DashContext.Consumer>
+        {context => (
+            <BaseTreeContainer
+                {...context.fn()}
+                {...props}
+                _dashprivate_path={JSON.parse(props._dashprivate_path)}
+            />
+        )}
+    </DashContext.Consumer>
+));
+
+class BaseTreeContainer extends Component {
     constructor(props) {
         super(props);
 
         this.setProps = this.setProps.bind(this);
     }
 
+    createContainer(props, component, path) {
+        return isSimpleComponent(component) ? (
+            component
+        ) : (
+            <TreeContainer
+                key={
+                    component &&
+                    component.props &&
+                    stringifyId(component.props.id)
+                }
+                _dashprivate_error={props._dashprivate_error}
+                _dashprivate_layout={component}
+                _dashprivate_loadingState={getLoadingState(
+                    component,
+                    path,
+                    props._dashprivate_loadingMap
+                )}
+                _dashprivate_loadingStateHash={getLoadingHash(
+                    path,
+                    props._dashprivate_loadingMap
+                )}
+                _dashprivate_path={JSON.stringify(path)}
+            />
+        );
+    }
+
     setProps(newProps) {
         const {
-            _dashprivate_dependencies,
+            _dashprivate_graphs,
             _dashprivate_dispatch,
             _dashprivate_path,
-            _dashprivate_layout,
+            _dashprivate_layout
         } = this.props;
 
-        const id = this.getLayoutProps().id;
-
-        // Identify the modified props that are required for callbacks
-        const watchedKeys = filter(
-            key =>
-                _dashprivate_dependencies &&
-                _dashprivate_dependencies.find(
-                    dependency =>
-                        dependency.inputs.find(
-                            input => input.id === id && input.property === key
-                        ) ||
-                        dependency.state.find(
-                            state => state.id === id && state.property === key
-                        )
-                )
-        )(keysIn(newProps));
-
-        // setProps here is triggered by the UI - record these changes
-        // for persistence
-        recordUiEdit(_dashprivate_layout, newProps, _dashprivate_dispatch);
-
-        // Always update this component's props
-        _dashprivate_dispatch(
-            updateProps({
-                props: newProps,
-                itempath: _dashprivate_path,
-            })
+        const oldProps = this.getLayoutProps();
+        const {id} = oldProps;
+        const changedProps = pickBy(
+            (val, key) => !equals(val, oldProps[key]),
+            newProps
         );
+        if (!isEmpty(changedProps)) {
+            // Identify the modified props that are required for callbacks
+            const watchedKeys = getWatchedKeys(
+                id,
+                keys(changedProps),
+                _dashprivate_graphs
+            );
 
-        // Only dispatch changes to Dash if a watched prop changed
-        if (watchedKeys.length) {
+            // setProps here is triggered by the UI - record these changes
+            // for persistence
+            recordUiEdit(_dashprivate_layout, newProps, _dashprivate_dispatch);
+
+            // Only dispatch changes to Dash if a watched prop changed
+            if (watchedKeys.length) {
+                _dashprivate_dispatch(
+                    notifyObservers({
+                        id,
+                        props: pick(watchedKeys, changedProps)
+                    })
+                );
+            }
+
+            // Always update this component's props
             _dashprivate_dispatch(
-                notifyObservers({
-                    id: id,
-                    props: pick(watchedKeys)(newProps),
+                updateProps({
+                    props: changedProps,
+                    itempath: _dashprivate_path
                 })
             );
         }
@@ -156,17 +166,26 @@ class TreeContainer extends Component {
         return Array.isArray(components)
             ? addIndex(map)(
                   (component, i) =>
-                      createContainer(
+                      this.createContainer(
+                          this.props,
                           component,
                           concat(path, ['props', 'children', i])
                       ),
                   components
               )
-            : createContainer(components, concat(path, ['props', 'children']));
+            : this.createContainer(
+                  this.props,
+                  components,
+                  concat(path, ['props', 'children'])
+              );
     }
 
     getComponent(_dashprivate_layout, children, loading_state, setProps) {
-        const {_dashprivate_config} = this.props;
+        const {
+            _dashprivate_config,
+            _dashprivate_dispatch,
+            _dashprivate_error
+        } = this.props;
 
         if (isEmpty(_dashprivate_layout)) {
             return null;
@@ -179,43 +198,39 @@ class TreeContainer extends Component {
 
         const element = Registry.resolve(_dashprivate_layout);
 
-        const props = omit(['children'], _dashprivate_layout.props);
+        const props = dissoc('children', _dashprivate_layout.props);
 
-        return _dashprivate_config.props_check ? (
+        if (type(props.id) === 'Object') {
+            // Turn object ids (for wildcards) into unique strings.
+            // Because of the `dissoc` above we're not mutating the layout,
+            // just the id we pass on to the rendered component
+            props.id = stringifyId(props.id);
+        }
+        const extraProps = {
+            loading_state: loading_state || NOT_LOADING,
+            setProps
+        };
+
+        return (
             <ComponentErrorBoundary
                 componentType={_dashprivate_layout.type}
-                componentId={_dashprivate_layout.props.id}
-                key={element && element.props && element.props.id}
+                componentId={props.id}
+                key={props.id}
+                dispatch={_dashprivate_dispatch}
+                error={_dashprivate_error}
             >
-                <CheckedComponent
-                    children={children}
-                    element={element}
-                    props={props}
-                    extraProps={{loading_state, setProps}}
-                    type={_dashprivate_layout.type}
-                />
-            </ComponentErrorBoundary>
-        ) : (
-            <ComponentErrorBoundary
-                componentType={_dashprivate_layout.type}
-                componentId={_dashprivate_layout.props.id}
-                key={element && element.props && element.props.id}
-            >
-                {React.createElement(
-                    element,
-                    mergeRight(props, {loading_state, setProps}),
-                    ...(Array.isArray(children) ? children : [children])
+                {_dashprivate_config.props_check ? (
+                    <CheckedComponent
+                        children={children}
+                        element={element}
+                        props={props}
+                        extraProps={extraProps}
+                        type={_dashprivate_layout.type}
+                    />
+                ) : (
+                    createElement(element, props, extraProps, children)
                 )}
             </ComponentErrorBoundary>
-        );
-    }
-
-    shouldComponentUpdate(nextProps) {
-        const {_dashprivate_layout, _dashprivate_loadingState} = nextProps;
-        return (
-            _dashprivate_layout !== this.props._dashprivate_layout ||
-            _dashprivate_loadingState.is_loading !==
-                this.props._dashprivate_loadingState.is_loading
         );
     }
 
@@ -227,7 +242,7 @@ class TreeContainer extends Component {
         const {
             _dashprivate_layout,
             _dashprivate_loadingState,
-            _dashprivate_path,
+            _dashprivate_path
         } = this.props;
 
         const layoutProps = this.getLayoutProps();
@@ -247,104 +262,23 @@ class TreeContainer extends Component {
 }
 
 TreeContainer.propTypes = {
-    _dashprivate_dependencies: PropTypes.any,
-    _dashprivate_dispatch: PropTypes.func,
+    _dashprivate_error: PropTypes.any,
     _dashprivate_layout: PropTypes.object,
-    _dashprivate_loadingState: PropTypes.object,
-    _dashprivate_requestQueue: PropTypes.any,
-    _dashprivate_config: PropTypes.object,
-    _dashprivate_path: PropTypes.array,
+    _dashprivate_loadingState: PropTypes.oneOfType([
+        PropTypes.object,
+        PropTypes.bool
+    ]),
+    _dashprivate_loadingStateHash: PropTypes.string,
+    _dashprivate_path: PropTypes.string
 };
 
-function isLoadingComponent(layout) {
-    validateComponent(layout);
-    return Registry.resolve(layout)._dashprivate_isLoadingComponent;
-}
+BaseTreeContainer.propTypes = {
+    ...TreeContainer.propTypes,
+    _dashprivate_config: PropTypes.object,
+    _dashprivate_dispatch: PropTypes.func,
+    _dashprivate_graphs: PropTypes.any,
+    _dashprivate_loadingMap: PropTypes.any,
+    _dashprivate_path: PropTypes.array
+};
 
-function getNestedIds(layout) {
-    const ids = [];
-    const queue = [layout];
-
-    while (queue.length) {
-        const elementLayout = queue.shift();
-
-        const props = elementLayout && elementLayout.props;
-
-        if (!props) {
-            continue;
-        }
-
-        const {children, id} = props;
-
-        if (id) {
-            ids.push(id);
-        }
-
-        if (children) {
-            const filteredChildren = filter(
-                child =>
-                    !isSimpleComponent(child) && !isLoadingComponent(child),
-                Array.isArray(children) ? children : [children]
-            );
-
-            queue.push(...filteredChildren);
-        }
-    }
-
-    return ids;
-}
-
-function getLoadingState(layout, requestQueue) {
-    const ids = isLoadingComponent(layout)
-        ? getNestedIds(layout)
-        : layout && layout.props.id
-        ? [layout.props.id]
-        : [];
-
-    let isLoading = false;
-    let loadingProp;
-    let loadingComponent;
-
-    if (requestQueue) {
-        forEach(r => {
-            const controllerId = isNil(r.controllerId) ? '' : r.controllerId;
-            if (
-                r.status === 'loading' &&
-                any(id => includes(id, controllerId), ids)
-            ) {
-                isLoading = true;
-                [loadingComponent, loadingProp] = r.controllerId.split('.');
-            }
-        }, requestQueue);
-    }
-
-    // Set loading state
-    return {
-        is_loading: isLoading,
-        prop_name: loadingProp,
-        component_name: loadingComponent,
-    };
-}
-
-export const AugmentedTreeContainer = connect(
-    state => ({
-        dependencies: state.dependenciesRequest.content,
-        requestQueue: state.requestQueue,
-        config: state.config,
-    }),
-    dispatch => ({dispatch}),
-    (stateProps, dispatchProps, ownProps) => ({
-        _dashprivate_dependencies: stateProps.dependencies,
-        _dashprivate_dispatch: dispatchProps.dispatch,
-        _dashprivate_layout: ownProps._dashprivate_layout,
-        _dashprivate_path: ownProps._dashprivate_path,
-        _dashprivate_loadingState: getLoadingState(
-            ownProps._dashprivate_layout,
-            stateProps.requestQueue
-        ),
-        _dashprivate_requestQueue: stateProps.requestQueue,
-        _dashprivate_config: stateProps.config,
-    })
-)(TreeContainer);
-
-export default AugmentedTreeContainer;
+export default TreeContainer;

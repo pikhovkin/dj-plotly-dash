@@ -25,10 +25,7 @@ test_cases = {
         "fail": True,
         "name": "invalid nested prop",
         "component": dcc.Checklist,
-        "props": {
-            "options": [{"label": "hello", "value": True}],
-            "value": ["test"],
-        },
+        "props": {"options": [{"label": "hello", "value": True}], "value": ["test"]},
     },
     "invalid-arrayOf": {
         "fail": True,
@@ -59,13 +56,7 @@ test_cases = {
         "name": "nested object with bad value",
         "component": dash_table.DataTable,
         "props": {
-            "columns": [{
-                "id": "id",
-                "name": "name",
-                "format": {
-                    "locale": "asdf"
-                }
-            }]
+            "columns": [{"id": "id", "name": "name", "format": {"locale": "asdf"}}]
         },
     },
     "invalid-shape-3": {
@@ -73,13 +64,7 @@ test_cases = {
         "name": "invalid oneOf within nested object",
         "component": dash_table.DataTable,
         "props": {
-            "columns": [{
-                "id": "id",
-                "name": "name",
-                "on_change": {
-                    "action": "asdf"
-                }
-            }]
+            "columns": [{"id": "id", "name": "name", "on_change": {"action": "asdf"}}]
         },
     },
     "invalid-shape-4": {
@@ -87,31 +72,20 @@ test_cases = {
         "name": "invalid key within deeply nested object",
         "component": dash_table.DataTable,
         "props": {
-            "columns": [{
-                "id": "id",
-                "name": "name",
-                "on_change": {
-                    "asdf": "asdf"
-                }
-            }]
+            "columns": [{"id": "id", "name": "name", "on_change": {"asdf": "asdf"}}]
         },
     },
     "invalid-shape-5": {
         "fail": True,
         "name": "invalid not required key",
         "component": dcc.Dropdown,
-        "props": {
-            "options": [{"label": "new york", "value": "ny", "typo": "asdf"}]
-        },
+        "props": {"options": [{"label": "new york", "value": "ny", "typo": "asdf"}]},
     },
     "string-not-list": {
         "fail": True,
         "name": "string-not-a-list",
         "component": dcc.Checklist,
-        "props": {
-            "options": [{"label": "hello", "value": "test"}],
-            "value": "test",
-        },
+        "props": {"options": [{"label": "hello", "value": "test"}], "value": "test"},
     },
     "no-properties": {
         "fail": False,
@@ -142,13 +116,7 @@ test_cases = {
         "name": "nested string instead of number/null",
         "component": dash_table.DataTable,
         "props": {
-            "columns": [{
-                "id": "id",
-                "name": "name",
-                "format": {
-                    "prefix": "asdf"
-                }
-            }]
+            "columns": [{"id": "id", "name": "name", "format": {"prefix": "asdf"}}]
         },
     },
     "allow-null": {
@@ -156,13 +124,7 @@ test_cases = {
         "name": "nested null",
         "component": dash_table.DataTable,
         "props": {
-            "columns": [{
-                "id": "id",
-                "name": "name",
-                "format": {
-                    "prefix": None
-                }
-            }]
+            "columns": [{"id": "id", "name": "name", "format": {"prefix": None}}]
         },
     },
     "allow-null-2": {
@@ -205,9 +167,7 @@ test_cases = {
         "fail": False,
         "name": "allow exact with optional and required keys",
         "component": dcc.Dropdown,
-        "props": {
-            "options": [{"label": "new york", "value": "ny", "disabled": False}]
-        },
+        "props": {"options": [{"label": "new york", "value": "ny", "disabled": False}]},
     },
     "allow-exact-with-optional-and-required-2": {
         "fail": False,
@@ -223,17 +183,13 @@ def test_dvpc001_prop_check_errors_with_path(dash_duo):
 
     app.layout = html.Div([html.Div(id="content"), dcc.Location(id="location")])
 
-    @app.callback(
-        Output("content", "children"), [Input("location", "hash")]
-    )
+    @app.callback(Output("content", "children"), [Input("location", "hash")])
     def display_content(hash):
         if hash is None or hash == "#/":
             return "Initial state"
-
         test_case = test_cases[hash.strip("#/")]
         return html.Div(
-            id="new-component",
-            children=test_case["component"](**test_case["props"]),
+            id="new-component", children=test_case["component"](**test_case["props"])
         )
 
     class DashView(BaseDashView):
@@ -258,14 +214,10 @@ def test_dvpc001_prop_check_errors_with_path(dash_duo):
         if test_cases[tc]["fail"]:
             dash_duo.wait_for_element(".test-devtools-error-toggle").click()
             dash_duo.percy_snapshot(
-                "devtools validation exception: {}".format(
-                    test_cases[tc]["name"]
-                )
+                "devtools validation exception: {}".format(test_cases[tc]["name"])
             )
         else:
             dash_duo.wait_for_element("#new-component")
             dash_duo.percy_snapshot(
-                "devtools validation no exception: {}".format(
-                    test_cases[tc]["name"]
-                )
+                "devtools validation no exception: {}".format(test_cases[tc]["name"])
             )

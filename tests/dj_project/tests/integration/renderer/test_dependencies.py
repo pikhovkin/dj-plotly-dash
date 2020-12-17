@@ -46,8 +46,6 @@ def test_rddp001_dependencies_on_components_that_dont_exist(dash_duo):
 
     assert output_1_call_count.value == 2 and output_2_call_count.value == 0
 
-    rqs = dash_duo.redux_state_rqs
-    assert len(rqs) == 1
-    assert rqs[0]["controllerId"] == "output-1.children" and not rqs[0]['rejected']
+    assert not dash_duo.redux_state_is_loading
 
     assert dash_duo.get_logs() == []

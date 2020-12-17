@@ -4,7 +4,6 @@ from __future__ import print_function
 import os
 import sys
 import shutil
-import glob
 import importlib
 import textwrap
 import re
@@ -46,7 +45,7 @@ version = "{project_ver}", src = list(href = NULL,
 file = "deps"), meta = NULL,
 script = {script_name},
 stylesheet = {css_name}, head = NULL, attachment = NULL, package = "{rpkgname}",
-all_files = FALSE{async_or_dynamic}), class = "html_dependency")"""   # noqa:E501
+all_files = FALSE{async_or_dynamic}), class = "html_dependency")"""  # noqa:E501
 
 frame_body_template = """`{project_shortname}` = structure(list(name = "{project_shortname}",
 version = "{project_ver}", src = list(href = NULL,
@@ -78,6 +77,9 @@ help_string = """% Auto-generated: do not edit by hand
 \\arguments{{
 {item_text}
 }}
+
+\\value{{{value_text}}}
+
 """
 
 description_template = """Package: {package_name}
@@ -86,15 +88,13 @@ Version: {package_version}
 Description: {package_description}
 Depends: R (>= 3.0.2){package_depends}
 Imports: {package_imports}
-Suggests: {package_suggests}
-License: {package_license}
+Suggests: {package_suggests}{package_rauthors}
+License: {package_license}{package_copyright}
 URL: {package_url}
 BugReports: {package_issues}
 Encoding: UTF-8
 LazyData: true{vignette_builder}
 KeepSource: true
-Author: {package_author_no_email}
-Maintainer: {maintainer}
 """
 
 rbuild_ignore_string = r"""# ignore JS config files/folders
@@ -119,7 +119,7 @@ demo/.*\.js
 demo/.*\.html
 demo/.*\.css
 
-# ignore python files/folders
+# ignore Python files/folders
 setup.py
 usage.py
 setup.py
@@ -203,9 +203,7 @@ def generate_class_string(name, props, project_shortname, prefix):
 
     # Produce a string with all property names other than WCs
     prop_names = ", ".join(
-        "'{}'".format(p)
-        for p in prop_keys
-        if "*" not in p and p not in ["setProps"]
+        "'{}'".format(p) for p in prop_keys if "*" not in p and p not in ["setProps"]
     )
 
     # Filter props to remove those we don't want to expose
@@ -214,10 +212,12 @@ def generate_class_string(name, props, project_shortname, prefix):
             prop_keys.remove(item)
         elif item in r_keywords:
             prop_keys.remove(item)
-            warnings.warn((
-                'WARNING: prop "{}" in component "{}" is an R keyword'
-                ' - REMOVED FROM THE R COMPONENT'
-            ).format(item, name))
+            warnings.warn(
+                (
+                    'WARNING: prop "{}" in component "{}" is an R keyword'
+                    " - REMOVED FROM THE R COMPONENT"
+                ).format(item, name)
+            )
 
     default_argtext += ", ".join("{}=NULL".format(p) for p in prop_keys)
 
@@ -227,16 +227,18 @@ def generate_class_string(name, props, project_shortname, prefix):
         for p in prop_keys
     )
 
-    return r_component_string.format(funcname=format_fn_name(prefix, name),
-                                     name=name,
-                                     default_argtext=default_argtext,
-                                     wildcards=wildcards,
-                                     wildcard_declaration=wildcard_declaration,
-                                     default_paramtext=default_paramtext,
-                                     project_shortname=project_shortname,
-                                     prop_names=prop_names,
-                                     wildcard_names=wildcard_names,
-                                     package_name=package_name)
+    return r_component_string.format(
+        funcname=format_fn_name(prefix, name),
+        name=name,
+        default_argtext=default_argtext,
+        wildcards=wildcards,
+        wildcard_declaration=wildcard_declaration,
+        default_paramtext=default_paramtext,
+        project_shortname=project_shortname,
+        prop_names=prop_names,
+        wildcard_names=wildcard_names,
+        package_name=package_name,
+    )
 
 
 # pylint: disable=R0914
@@ -288,10 +290,10 @@ def generate_js_metadata(pkg_data, project_shortname):
 
             if "css" in rpp:
                 css_name = "'{}'".format(rpp)
-                script_name = 'NULL'
+                script_name = "NULL"
             else:
                 script_name = "'{}'".format(rpp)
-                css_name = 'NULL'
+                css_name = "NULL"
 
             function_frame += [
                 frame_element_template.format(
@@ -341,14 +343,13 @@ def generate_js_metadata(pkg_data, project_shortname):
 def get_async_type(dep):
     async_or_dynamic = ""
     for key in dep.keys():
-        if key in ['async', 'dynamic']:
+        if key in ["async", "dynamic"]:
             keyval = dep[key]
             if not isinstance(keyval, bool):
                 keyval = "'{}'".format(keyval.lower())
             else:
                 keyval = str(keyval).upper()
-            async_or_dynamic = \
-                ", {} = {}".format(key, keyval)
+            async_or_dynamic = ", {} = {}".format(key, keyval)
     return async_or_dynamic
 
 
@@ -357,7 +358,7 @@ def get_async_type(dep):
 def wrap(tag, code):
     if tag == "":
         return code
-    return '\\{}{{\n{}}}'.format(tag, code)
+    return "\\{}{{\n{}}}".format(tag, code)
 
 
 def write_help_file(name, props, description, prefix, rpkg_data):
@@ -378,10 +379,20 @@ def write_help_file(name, props, description, prefix, rpkg_data):
     funcname = format_fn_name(prefix, name)
     file_name = funcname + ".Rd"
 
+    wildcards = ""
     default_argtext = ""
     item_text = ""
+    accepted_wildcards = ""
+
+    # the return value of all Dash components should be the same,
+    # in an abstract sense -- they produce a list
+    value_text = "named list of JSON elements corresponding to React.js properties and their values"  # noqa:E501
 
     prop_keys = list(props.keys())
+
+    if any(key.endswith("-*") for key in prop_keys):
+        accepted_wildcards = get_wildcards_r(prop_keys)
+        wildcards = ", ..."
 
     # Filter props to remove those we don't want to expose
     for item in prop_keys[:]:
@@ -392,9 +403,7 @@ def write_help_file(name, props, description, prefix, rpkg_data):
 
     item_text += "\n\n".join(
         "\\item{{{}}}{{{}{}}}".format(
-            p,
-            print_r_type(props[p]["type"]),
-            props[p]["description"]
+            p, print_r_type(props[p]["type"]), props[p]["description"]
         )
         for p in prop_keys
     )
@@ -408,44 +417,45 @@ def write_help_file(name, props, description, prefix, rpkg_data):
     if "**Example Usage**" in description:
         description = description.split("**Example Usage**")[0].rstrip()
 
-    if any(key.endswith("-*") for key in prop_keys):
-        default_argtext += ', ...'
-        item_text += wildcard_help_template.format(get_wildcards_r(prop_keys))
+    if wildcards == ", ...":
+        default_argtext += wildcards
+        item_text += wildcard_help_template.format(accepted_wildcards)
 
     # in R, the online help viewer does not properly wrap lines for
-    # the usage string -- we will hard wrap at 80 characters using
+    # the usage string -- we will hard wrap at 60 characters using
     # textwrap.fill, starting from the beginning of the usage string
 
-    file_path = os.path.join('man', file_name)
-    with open(file_path, 'w') as f:
-        f.write(help_string.format(
-            funcname=funcname,
-            name=name,
-            default_argtext=textwrap.fill(default_argtext,
-                                          width=80,
-                                          break_long_words=False),
-            item_text=item_text,
-            description=description.replace('\n', ' ')
-        ))
-    if rpkg_data is not None and 'r_examples' in rpkg_data:
-        ex = rpkg_data.get('r_examples')
+    file_path = os.path.join("man", file_name)
+    with open(file_path, "w") as f:
+        f.write(
+            help_string.format(
+                funcname=funcname,
+                name=name,
+                default_argtext=textwrap.fill(
+                    default_argtext, width=60, break_long_words=False
+                ),
+                item_text=item_text,
+                value_text=value_text,
+                description=description.replace("\n", " "),
+            )
+        )
+    if rpkg_data is not None and "r_examples" in rpkg_data:
+        ex = rpkg_data.get("r_examples")
         the_ex = ([e for e in ex if e.get("name") == funcname] or [None])[0]
         result = ""
         if the_ex and "code" in the_ex.keys():
-            result += wrap("examples",
-                           wrap("dontrun" if the_ex.get("dontrun") else "",
-                                the_ex["code"]))
-            with open(file_path, 'a+') as fa:
-                fa.write(result + '\n')
+            result += wrap(
+                "examples",
+                wrap("dontrun" if the_ex.get("dontrun") else "", the_ex["code"]),
+            )
+            with open(file_path, "a+") as fa:
+                fa.write(result + "\n")
 
 
 # pylint: disable=too-many-arguments
-def write_class_file(name,
-                     props,
-                     description,
-                     project_shortname,
-                     prefix=None,
-                     rpkg_data=None):
+def write_class_file(
+    name, props, description, project_shortname, prefix=None, rpkg_data=None
+):
     props = reorder_props(props=props)
 
     # generate the R help pages for each of the Dash components that we
@@ -455,11 +465,8 @@ def write_class_file(name,
     # from within Python
     write_help_file(name, props, description, prefix, rpkg_data)
 
-    import_string =\
-        "# AUTO GENERATED FILE - DO NOT EDIT\n\n"
-    class_string = generate_class_string(
-        name, props, project_shortname, prefix
-    )
+    import_string = "# AUTO GENERATED FILE - DO NOT EDIT\n\n"
+    class_string = generate_class_string(name, props, project_shortname, prefix)
 
     file_name = format_fn_name(prefix, name) + ".R"
 
@@ -506,26 +513,35 @@ def write_js_metadata(pkg_data, project_shortname, has_wildcards):
 
     os.makedirs("inst/deps")
 
-    for javascript in glob.glob("{}/*.js".format(project_shortname)):
-        shutil.copy(javascript, "inst/deps/")
+    for rel_dirname, _, filenames in os.walk(project_shortname):
+        for filename in filenames:
+            extension = os.path.splitext(filename)[1]
 
-    for css in glob.glob("{}/*.css".format(project_shortname)):
-        shutil.copy(css, "inst/deps/")
+            if extension in [".py", ".pyc", ".json"]:
+                continue
 
-    for sourcemap in glob.glob("{}/*.map".format(project_shortname)):
-        shutil.copy(sourcemap, "inst/deps/")
+            target_dirname = os.path.join(
+                os.path.join(
+                    "inst/deps/", os.path.relpath(rel_dirname, project_shortname)
+                )
+            )
+
+            if not os.path.exists(target_dirname):
+                os.makedirs(target_dirname)
+
+            shutil.copy(os.path.join(rel_dirname, filename), target_dirname)
 
 
 # pylint: disable=R0914, R0913, R0912, R0915
 def generate_rpkg(
-        pkg_data,
-        rpkg_data,
-        project_shortname,
-        export_string,
-        package_depends,
-        package_imports,
-        package_suggests,
-        has_wildcards,
+    pkg_data,
+    rpkg_data,
+    project_shortname,
+    export_string,
+    package_depends,
+    package_imports,
+    package_suggests,
+    has_wildcards,
 ):
     """Generate documents for R package creation.
 
@@ -548,17 +564,23 @@ def generate_rpkg(
     # does not exist in package.json
 
     package_name = snake_case_to_camel_case(project_shortname)
+    package_copyright = ""
+    package_rauthors = ""
     lib_name = pkg_data.get("name")
 
     if rpkg_data is not None:
         if rpkg_data.get("pkg_help_title"):
-            package_title = rpkg_data.get("pkg_help_title",
-                                          pkg_data.get("description",
-                                                       ""))
+            package_title = rpkg_data.get(
+                "pkg_help_title", pkg_data.get("description", "")
+            )
         if rpkg_data.get("pkg_help_description"):
-            package_description = rpkg_data.get("pkg_help_description",
-                                                pkg_data.get("description",
-                                                             ""))
+            package_description = rpkg_data.get(
+                "pkg_help_description", pkg_data.get("description", "")
+            )
+        if rpkg_data.get("pkg_copyright"):
+            package_copyright = "\nCopyright: {}".format(
+                rpkg_data.get("pkg_copyright", "")
+            )
     else:
         # fall back to using description in package.json, if present
         package_title = pkg_data.get("description", "")
@@ -566,15 +588,18 @@ def generate_rpkg(
 
     package_version = pkg_data.get("version", "0.0.1")
 
-    # remove leading and trailing commas
+    # remove leading and trailing commas, add space after comma if missing
     if package_depends:
         package_depends = ", " + package_depends.strip(",").lstrip()
+        package_depends = re.sub(r"(,(?![ ]))", ", ", package_depends)
 
     if package_imports:
         package_imports = package_imports.strip(",").lstrip()
+        package_imports = re.sub(r"(,(?![ ]))", ", ", package_imports)
 
     if package_suggests:
         package_suggests = package_suggests.strip(",").lstrip()
+        package_suggests = re.sub(r"(,(?![ ]))", ", ", package_suggests)
 
     if "bugs" in pkg_data:
         package_issues = pkg_data["bugs"].get("url", "")
@@ -597,19 +622,33 @@ def generate_rpkg(
 
     package_author = pkg_data.get("author")
 
-    package_author_no_email = package_author.split(" <")[0] + " [aut]"
+    package_author_name = package_author.split(" <")[0]
+    package_author_email = package_author.split(" <")[1][:-1]
+
+    package_author_fn = package_author_name.split(" ")[0]
+    package_author_ln = package_author_name.rsplit(" ", 2)[-1]
 
     maintainer = pkg_data.get("maintainer", pkg_data.get("author"))
 
-    if "<" not in package_author or "<" not in maintainer:
+    if "<" not in package_author:
         print(
             "Error, aborting R package generation: "
-            "R packages require a properly formatted author or "
-            "maintainer field or installation will fail. Please include "
-            "an email address enclosed within < > brackets in package.json. ",
+            "R packages require a properly formatted author field "
+            "or installation will fail. Please include an email "
+            "address enclosed within < > brackets in package.json. ",
             file=sys.stderr,
         )
         sys.exit(1)
+
+    if rpkg_data is not None:
+        if rpkg_data.get("pkg_authors"):
+            package_rauthors = "\nAuthors@R: {}".format(
+                rpkg_data.get("pkg_authors", "")
+            )
+        else:
+            package_rauthors = '\nAuthors@R: person("{}", "{}", role = c("aut", "cre"), email = "{}")'.format(
+                package_author_fn, package_author_ln, package_author_email
+            )
 
     if not (os.path.isfile("LICENSE") or os.path.isfile("LICENSE.txt")):
         package_license = pkg_data.get("license", "")
@@ -620,9 +659,9 @@ def generate_rpkg(
             os.symlink("LICENSE.txt", "LICENSE")
 
     import_string = "# AUTO GENERATED FILE - DO NOT EDIT\n\n"
-    packages_string = ''
+    packages_string = ""
 
-    rpackage_list = package_depends.split(', ') + package_imports.split(', ')
+    rpackage_list = package_depends.split(", ") + package_imports.split(", ")
     rpackage_list = filter(bool, rpackage_list)
 
     if rpackage_list:
@@ -631,9 +670,9 @@ def generate_rpkg(
 
     if os.path.exists("vignettes"):
         vignette_builder = "\nVignetteBuilder: knitr"
-        if "knitr" not in package_suggests and \
-           "rmarkdown" not in package_suggests:
-            package_suggests += ", knitr, rmarkdown".lstrip(", ")
+        if "knitr" not in package_suggests and "rmarkdown" not in package_suggests:
+            package_suggests += ", knitr, rmarkdown"
+            package_suggests = package_suggests.lstrip(", ")
     else:
         vignette_builder = ""
 
@@ -657,16 +696,15 @@ def generate_rpkg(
         package_title=package_title,
         package_description=package_description,
         package_version=package_version,
-        package_author=package_author,
+        package_rauthors=package_rauthors,
         package_depends=package_depends,
         package_imports=package_imports,
         package_suggests=package_suggests,
         package_license=package_license,
+        package_copyright=package_copyright,
         package_url=package_url,
         package_issues=package_issues,
         vignette_builder=vignette_builder,
-        package_author_no_email=package_author_no_email,
-        maintainer=maintainer,
     )
 
     with open("DESCRIPTION", "w+") as f3:
@@ -705,23 +743,23 @@ def format_fn_name(prefix, name):
 
 # pylint: disable=unused-argument
 def generate_exports(
-        project_shortname,
-        components,
-        metadata,
-        pkg_data,
-        rpkg_data,
-        prefix,
-        package_depends,
-        package_imports,
-        package_suggests,
-        **kwargs
+    project_shortname,
+    components,
+    metadata,
+    pkg_data,
+    rpkg_data,
+    prefix,
+    package_depends,
+    package_imports,
+    package_suggests,
+    **kwargs
 ):
     export_string = make_namespace_exports(components, prefix)
 
     # Look for wildcards in the metadata
     has_wildcards = False
     for component_data in metadata.values():
-        if any(key.endswith('-*') for key in component_data['props']):
+        if any(key.endswith("-*") for key in component_data["props"]):
             has_wildcards = True
             break
 
@@ -744,9 +782,9 @@ def make_namespace_exports(components, prefix):
     export_string = ""
     for component in components:
         if (
-                not component.endswith("-*")
-                and str(component) not in r_keywords
-                and str(component) not in ["setProps", "children"]
+            not component.endswith("-*")
+            and str(component) not in r_keywords
+            and str(component) not in ["setProps", "children"]
         ):
             export_string += "export({}{})\n".format(prefix, component)
 
@@ -769,7 +807,7 @@ def make_namespace_exports(components, prefix):
             s = script.read()
 
             # remove comments
-            s = re.sub('#.*$', '', s, flags=re.M)
+            s = re.sub("#.*$", "", s, flags=re.M)
 
             # put the whole file on one line
             s = s.replace("\n", " ").replace("\r", " ")
@@ -790,7 +828,8 @@ def make_namespace_exports(components, prefix):
             # now, in whatever is left, look for functions
             matches = re.findall(
                 # in R, either = or <- may be used to create and assign objects
-                r"([^A-Za-z0-9._]|^)([A-Za-z0-9._]+)\s*(=|<-)\s*function", s
+                r"([^A-Za-z0-9._]|^)([A-Za-z0-9._]+)\s*(=|<-)\s*function",
+                s,
             )
             for match in matches:
                 fn = match[1]
@@ -798,8 +837,7 @@ def make_namespace_exports(components, prefix):
                 if fn[0] != "." and fn not in fnlist:
                     fnlist.append(fn)
 
-    export_string += "\n".join("export({})".format(function)
-                               for function in fnlist)
+    export_string += "\n".join("export({})".format(function) for function in fnlist)
     return export_string
 
 
@@ -807,21 +845,21 @@ def get_r_prop_types(type_object):
     """Mapping from the PropTypes js type object to the R type."""
 
     def shape_or_exact():
-        return 'lists containing elements {}.\n{}'.format(
-            ', '.join(
-                "'{}'".format(t) for t in list(type_object['value'].keys())
-            ),
-            'Those elements have the following types:\n{}'.format(
-                '\n'.join(
+        return "lists containing elements {}.\n{}".format(
+            ", ".join("'{}'".format(t) for t in type_object["value"]),
+            "Those elements have the following types:\n{}".format(
+                "\n".join(
                     create_prop_docstring_r(
                         prop_name=prop_name,
                         type_object=prop,
-                        required=prop['required'],
-                        description=prop.get('description', ''),
-                        indent_num=1
-                    ) for prop_name, prop in
-                    list(type_object['value'].items())))
-            )
+                        required=prop["required"],
+                        description=prop.get("description", ""),
+                        indent_num=1,
+                    )
+                    for prop_name, prop in type_object["value"].items()
+                )
+            ),
+        )
 
     return dict(
         array=lambda: "unnamed list",
@@ -829,15 +867,12 @@ def get_r_prop_types(type_object):
         number=lambda: "numeric",
         string=lambda: "character",
         object=lambda: "named list",
-        any=lambda: "logical | numeric | character | "
-                    "named list | unnamed list",
+        any=lambda: "logical | numeric | character | named list | unnamed list",
         element=lambda: "dash component",
-        node=lambda: "a list of or a singular dash "
-                     "component, string or number",
+        node=lambda: "a list of or a singular dash component, string or number",
         # React's PropTypes.oneOf
         enum=lambda: "a value equal to: {}".format(
-            ", ".join("{}".format(str(t["value"]))
-                      for t in type_object["value"])
+            ", ".join("{}".format(str(t["value"])) for t in type_object["value"])
         ),
         # React's PropTypes.oneOfType
         union=lambda: "{}".format(
@@ -849,22 +884,21 @@ def get_r_prop_types(type_object):
         ),
         # React's PropTypes.arrayOf
         arrayOf=lambda: (
-            "list" + (" of {}s".format(
-                get_r_type(type_object["value"]))
-                      if get_r_type(type_object["value"]) != ""
-                      else "")
+            "list"
+            + (
+                " of {}s".format(get_r_type(type_object["value"]))
+                if get_r_type(type_object["value"]) != ""
+                else ""
+            )
         ),
         # React's PropTypes.objectOf
-        objectOf=lambda: (
-            "list with named elements and values of type {}"
-            ).format(
-                get_r_type(type_object["value"])
-            ),
-
+        objectOf=lambda: "list with named elements and values of type {}".format(
+            get_r_type(type_object["value"])
+        ),
         # React's PropTypes.shape
         shape=shape_or_exact,
         # React's PropTypes.exact
-        exact=shape_or_exact
+        exact=shape_or_exact,
     )
 
 
@@ -886,9 +920,9 @@ def get_r_type(type_object, is_flow_type=False, indent_num=0):
     js_type_name = type_object["name"]
     js_to_r_types = get_r_prop_types(type_object=type_object)
     if (
-            "computed" in type_object
-            and type_object["computed"]
-            or type_object.get("type", "") == "function"
+        "computed" in type_object
+        and type_object["computed"]
+        or type_object.get("type", "") == "function"
     ):
         return ""
     elif js_type_name in js_to_r_types:
@@ -905,8 +939,9 @@ def print_r_type(typedata):
 
 
 # pylint: disable=too-many-arguments
-def create_prop_docstring_r(prop_name, type_object, required, description,
-                            indent_num, is_flow_type=False):
+def create_prop_docstring_r(
+    prop_name, type_object, required, description, indent_num, is_flow_type=False
+):
     """
     Create the Dash component prop docstring
     Parameters
@@ -930,34 +965,33 @@ def create_prop_docstring_r(prop_name, type_object, required, description,
         Dash component prop docstring
     """
     r_type_name = get_r_type(
-        type_object=type_object,
-        is_flow_type=is_flow_type,
-        indent_num=indent_num + 1)
+        type_object=type_object, is_flow_type=is_flow_type, indent_num=indent_num + 1
+    )
 
-    indent_spacing = '  ' * indent_num
-    if '\n' in r_type_name:
-        return '{indent_spacing}- {name} ({is_required}): {description}. ' \
-               '{name} has the following type: {type}'.format(
-                   indent_spacing=indent_spacing,
-                   name=prop_name,
-                   type=r_type_name,
-                   description=description,
-                   is_required='required' if required else 'optional')
-    return '{indent_spacing}- {name} ({type}' \
-           '{is_required}){description}'.format(
-               indent_spacing=indent_spacing,
-               name=prop_name,
-               type='{}; '.format(r_type_name) if r_type_name else '',
-               description=(
-                   ': {}'.format(description) if description != '' else ''
-               ),
-               is_required='required' if required else 'optional')
+    indent_spacing = "  " * indent_num
+    if "\n" in r_type_name:
+        return (
+            "{indent_spacing}- {name} ({is_required}): {description}. "
+            "{name} has the following type: {type}".format(
+                indent_spacing=indent_spacing,
+                name=prop_name,
+                type=r_type_name,
+                description=description,
+                is_required="required" if required else "optional",
+            )
+        )
+    return "{indent_spacing}- {name} ({type}{is_required}){description}".format(
+        indent_spacing=indent_spacing,
+        name=prop_name,
+        type="{}; ".format(r_type_name) if r_type_name else "",
+        description=(": {}".format(description) if description != "" else ""),
+        is_required="required" if required else "optional",
+    )
 
 
 def get_wildcards_r(prop_keys):
     wildcards = ""
-    wildcards += ", ".join("'{}'".format(p)
-                           for p in prop_keys if p.endswith("-*"))
+    wildcards += ", ".join("'{}'".format(p) for p in prop_keys if p.endswith("-*"))
 
     if wildcards == "":
         wildcards = "NULL"
