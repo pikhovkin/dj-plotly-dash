@@ -10,7 +10,7 @@ plotly>=4.14.1
 pytest-django>=3.4.3
 flake8>=3.5.0
 pylint==2.7.3;python_version<"3.7"
-pylint==2.3.1;python_version=="3.7"
+pylint==2.7.3;python_version=="3.7"
 astroid==2.2.5;python_version=="3.7"
 mock
 fire
