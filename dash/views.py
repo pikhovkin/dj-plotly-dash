@@ -1,9 +1,11 @@
 from __future__ import print_function
 
 import logging
+import sys
 
 import plotly
 
+from django.apps import apps
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
@@ -32,24 +34,43 @@ class JsonResponse(BaseJsonResponse):
 
 
 class MetaDashView(type):
+    @staticmethod
+    def _get_class_app(cls):
+        app_name = ''
+        for module in cls.__module__.split('.'):
+            app_name += module
+            if f'{app_name}.apps' in sys.modules and apps.is_installed(app_name):
+                break
+            app_name += '.'
+        try:
+            return app_name and next(ac for ac in apps.app_configs.values() if ac.name == app_name) or None
+        except (StopIteration, IndexError):
+            ...
+        return None
+
     def __new__(cls, name, bases, attrs):
         new_cls = super(MetaDashView, cls).__new__(cls, name, bases, attrs)
 
-        dash_name = new_cls.__dict__.get('dash_name', getattr(new_cls, 'dash_name', ''))
-        if dash_name:
-            new_cls._dashes[dash_name] = new_cls   # pylint: disable=protected-access
-            dash_prefix = getattr(new_cls, 'dash_prefix', '').strip()
-            if dash_prefix:
-                # pylint: disable=protected-access
-                new_cls._dashes[dash_prefix + new_cls.__dict__['dash_name']] = new_cls
-
-        new_cls._dash_hot_reload_hash = generate_hash()   # pylint: disable=protected-access
-
+        new_cls._dash_hot_reload_hash = generate_hash()  # pylint: disable=protected-access
         if new_cls.__dict__.get('dash_hot_reload', None) is None:
             try:
                 new_cls.dash_hot_reload = getattr(settings, 'DASH_HOT_RELOAD', False)
             except ImproperlyConfigured:
                 new_cls.dash_hot_reload = False
+
+        dash_name = new_cls.__dict__.get('dash_name', getattr(new_cls, 'dash_name', ''))
+        if not dash_name:
+            return new_cls
+
+        app = cls._get_class_app(new_cls)
+        new_cls.app_label = ''
+        if app is None:
+            return new_cls
+
+        dash_prefix = getattr(new_cls, 'dash_prefix', '').strip()
+        new_cls._dashes[f'{app.label}:{dash_name}'] = new_cls   # pylint: disable=protected-access
+        new_cls._dashes[f'{app.label}:{dash_prefix}{dash_name}'] = new_cls  # pylint: disable=protected-access
+        new_cls.app_label = app.label
 
         return new_cls
 

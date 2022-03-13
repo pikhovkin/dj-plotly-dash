@@ -4,7 +4,7 @@ from .views import BaseDashView
 
 
 urlpatterns = [
-    url(r'^(?P<dash_name>[\-\w_0-9]+)/', include([
+    url(r'^(?P<dash_name>[\-\w_:.0-9]+)/', include([
         url(r'^$', BaseDashView.serve_dash_index),
         url(r'^(?P<path>[\-\w_.@0-9]+)/$', BaseDashView.serve_dash_index),
         url(r'^_dash-dependencies', BaseDashView.serve_dash_dependencies),
