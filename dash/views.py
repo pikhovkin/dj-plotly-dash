@@ -70,6 +70,7 @@ class BaseDashView(TemplateView, metaclass=MetaDashView):
     dash_components = None
     dash_hot_reload = None
     dash_suppress_callback_exceptions = True
+    dash_cache_max_age = getattr(settings, 'DASH_CACHE_MAX_AGE', 0)
     dash_app_entry = """
 <div id="react-entry-point">
     <div class="_dash-loading">
@@ -197,6 +198,8 @@ class BaseDashView(TemplateView, metaclass=MetaDashView):
 
         response = HttpResponse(self.dash.serve_component_suites(*args, **kwargs), content_type=mimetype)
         # response['Cache-Control'] = 'public, max-age={}'.format(self.dash.config.components_cache_max_age)
+        if self.dash_cache_max_age:
+            response['Cache-Control'] = 'public, max-age={}'.format(self.dash_cache_max_age)
         return response
 
     def _dash_routes(self, request, *args, **kwargs):  # pylint: disable=unused-argument
