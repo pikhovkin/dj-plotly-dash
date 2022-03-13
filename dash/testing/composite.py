@@ -1,5 +1,3 @@
-import time
-
 from dash.testing.browser import Browser
 
 
