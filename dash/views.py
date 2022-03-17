@@ -57,6 +57,11 @@ class MetaDashView(type):
                 new_cls.dash_hot_reload = getattr(settings, 'DASH_HOT_RELOAD', False)
             except ImproperlyConfigured:
                 new_cls.dash_hot_reload = False
+        if new_cls.__dict__.get('dash_cache_max_age', None) is None:
+            try:
+                new_cls.dash_cache_max_age = getattr(settings, 'DASH_CACHE_MAX_AGE', 0)
+            except ImproperlyConfigured:
+                new_cls.dash_cache_max_age = 0
 
         dash_name = new_cls.__dict__.get('dash_name', getattr(new_cls, 'dash_name', ''))
         if not dash_name:
@@ -91,7 +96,7 @@ class BaseDashView(TemplateView, metaclass=MetaDashView):
     dash_components = None
     dash_hot_reload = None
     dash_suppress_callback_exceptions = True
-    dash_cache_max_age = getattr(settings, 'DASH_CACHE_MAX_AGE', 0)
+    dash_cache_max_age = 0  # getattr(settings, 'DASH_CACHE_MAX_AGE', 0)
     dash_app_entry = """
 <div id="react-entry-point">
     <div class="_dash-loading">
