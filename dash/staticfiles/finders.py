@@ -6,12 +6,14 @@ import sys
 from collections import OrderedDict
 from importlib import import_module
 
-from django.contrib.staticfiles import utils
-from django.core.files.storage import FileSystemStorage
-from django.contrib.staticfiles.finders import FileSystemFinder
 from django.apps import apps
+from django.contrib.staticfiles import utils
+from django.contrib.staticfiles.finders import FileSystemFinder
+from django.core.files import File
+from django.core.files.storage import FileSystemStorage
 
-from ..development.base_component import ComponentRegistry
+from dash.development.base_component import ComponentRegistry
+from dash.fingerprint import build_fingerprint
 
 
 def _import_module(pkg, m):
@@ -23,6 +25,15 @@ def _import_module(pkg, m):
     views_path = os.path.dirname(_pkg.__file__)
     for info in pkgutil.iter_modules([views_path]):
         _import_module(pkg + '.' + m, info[1])
+
+
+class DashStorage(FileSystemStorage):
+    def _open(self, name, mode='rb'):
+        new_file_name, ext = name.rsplit('.', 1)
+        temporary_file_path = self.path(f'{new_file_name}_.{ext}')
+        f = File(open(temporary_file_path, mode))
+        f.temporary_file_path = lambda: temporary_file_path
+        return f
 
 
 class DashComponentSuitesFinder(FileSystemFinder):
@@ -49,7 +60,7 @@ class DashComponentSuitesFinder(FileSystemFinder):
                 self.locations.append((prefix, root))
 
         for prefix, root in self.locations:
-            filesystem_storage = FileSystemStorage(location=root)
+            filesystem_storage = DashStorage(location=root)
             filesystem_storage.prefix = prefix
             self.storages[root] = filesystem_storage
 
@@ -58,5 +69,12 @@ class DashComponentSuitesFinder(FileSystemFinder):
         """
         for prefix, root in self.locations:  # pylint: disable=unused-variable
             storage = self.storages[root]
+            temp_storage = FileSystemStorage(location=storage.location)
+            version = import_module(root.split('/')[-1]).__version__
             for path in utils.get_files(storage, ignore_patterns=self.ignore_patterns + (ignore_patterns or [])):
-                yield path, storage
+                modified = int(os.stat(temp_storage.path(path)).st_mtime)
+                new_path = build_fingerprint(path, version, modified)
+                new_file_name, ext = new_path.rsplit('.', 1)
+                with temp_storage.open(path) as source_file:
+                    temp_storage.save(f'{new_file_name}_.{ext}', source_file)
+                yield new_path, storage
