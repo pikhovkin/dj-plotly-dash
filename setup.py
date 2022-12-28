@@ -12,8 +12,8 @@ def read_req_file(req_type):
 
 
 general_requires = [
-    'Django>=2.0,<3.2',
-    'plotly>=4.14.1',
+    'Django>=2.0,<4',
+    'plotly>=4.14.1,<5',
     'future',
 ]
 
@@ -52,6 +52,7 @@ setup(
         'Framework :: Django :: 2.1',
         'Framework :: Django :: 2.2',
         'Framework :: Django :: 3.1',
+        'Framework :: Django :: 3.2',
         'Intended Audience :: Developers',
         'Intended Audience :: Education',
         'Intended Audience :: Financial and Insurance Industry',
