@@ -1,20 +1,31 @@
-#dash_core_components==1.13.0
-#dash_html_components==1.1.1
-#dash_renderer==1.8.3
-#django>=2.0,<3.2
-#dash_flow_example==0.0.5
-#dash-dangerously-set-inner-html
+dash_core_components==1.17.1
+dash_html_components==1.1.4
+dash_renderer==1.8.3
+django>=3.2,<4
+dash_flow_example==0.0.5
+dash-dangerously-set-inner-html
+dash-core-components==1.17.1
+dash-html-components==1.1.4
+dash_table==4.11.0
 selenium>=3.14.1
 tox>=3.5.3
 plotly>=4.14.1
 pytest-django>=3.4.3
 flake8>=3.5.0
-pylint==1.9.4;python_version<"3.7"
-pylint==2.3.1;python_version=="3.7"
-pylint==2.10.1;python_version>="3.8"
-astroid==2.2.5;python_version=="3.7"
-astroid==2.7.2;python_version>="3.8"
+pylint==2.3.1
+astroid==2.7.2
 mock
 fire
 coloredlogs
 PyYAML>=5.1.1
+future==0.18.2
+bs4==
+beautifulsoup4==4.11.1
+soupsieve==2.3.2.post1
+requests==2.28.1
+dash_table==4.12.0
+dash_dangerously_set_inner_html==0.0.2
+dash_flow_example==0.0.5
+-e @plotly/dash-test-components
+-e @plotly/dash-generator-test-component-standard
+-e @plotly/dash-generator-test-component-nested

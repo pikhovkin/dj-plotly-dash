@@ -30,7 +30,7 @@ setup(
     long_description=io.open('README.md', encoding='utf-8').read(),
     long_description_content_type='text/markdown',
     install_requires=[],
-    python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*",
+    python_requires=">=3.8",
     extras_require={
         'all': general_requires + ['dash_renderer==1.8.3'],
         'no-dash-renderer': general_requires
@@ -65,6 +65,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
         'Topic :: Database :: Front-Ends',
         'Topic :: Office/Business :: Financial :: Spreadsheet',
         'Topic :: Scientific/Engineering :: Visualization',
