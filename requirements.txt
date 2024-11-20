@@ -2,5 +2,5 @@
 ;dash_html_components==1.1.1
 ;dash-table==4.2.0
 plotly>=4.14.1
-dash-renderer==1.8.3
+dash-renderer==1.9.1
 Django>=2.0,<3.2
